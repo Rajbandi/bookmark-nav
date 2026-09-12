@@ -7,6 +7,7 @@ import { bookmarks, bookmarkTags, categories, settings, tags } from "../db/schem
 import type { AppEnv } from "../lib/types";
 import { extractJson, loadAISettings, runChat } from "../lib/ai";
 import { clientIp, consumeRateLimit, pruneRateLimits } from "../lib/rate-limit";
+import { mergeDefaultSettings } from "../lib/settings";
 
 // 语义搜索匿名可调用,且每次请求都会触发一次 LLM 推理,必须限流以防 AI 额度被刷爆
 const SEMANTIC_SEARCH_LIMIT = 30;
@@ -72,6 +73,8 @@ const PUBLIC_SETTING_KEYS = new Set([
 	"footer",
 	"icon.service",
 	"appearance.compact",
+	"appearance.anchorNav",
+	"showGithubLink",
 ]);
 
 const bookmarkColumns = {
@@ -94,7 +97,8 @@ export const publicRoutes = new Hono<AppEnv>()
 		const db = createDb(c.env.DB);
 		const rows = await db.select().from(settings);
 		const safe = rows.filter((r) => PUBLIC_SETTING_KEYS.has(r.key));
-		return c.json(Object.fromEntries(safe.map((r) => [r.key, r.value])));
+		// 缺失的键补开箱默认值(紧凑模式/图标服务),已保存的值优先
+		return c.json(mergeDefaultSettings(safe));
 	})
 	// AI 可用性(公开,供前端决定是否显示语义搜索入口)
 	.get("/ai-config", async (c) => {

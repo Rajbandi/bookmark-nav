@@ -13,6 +13,7 @@ import {
 } from "../db/schema";
 import type { AppEnv } from "../lib/types";
 import { requireAuth } from "../middleware/auth";
+import { mergeDefaultSettings } from "../lib/settings";
 import {
 	buildNetscapeHtml,
 	parseNetscapeHtml,
@@ -789,7 +790,8 @@ ${pageText || "（无）"}`;
 	.get("/settings", async (c) => {
 		const db = createDb(c.env.DB);
 		const rows = await db.select().from(settings);
-		return c.json(Object.fromEntries(rows.map((r) => [r.key, r.value])));
+		// 缺失的键补开箱默认值,后台表单(紧凑模式开关/图标服务)才能显示默认状态
+		return c.json(mergeDefaultSettings(rows));
 	})
 	.put(
 		"/settings",
