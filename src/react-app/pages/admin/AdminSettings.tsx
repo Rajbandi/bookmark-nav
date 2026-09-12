@@ -62,6 +62,13 @@ export default function AdminSettings() {
 								rows={2}
 								disabled={isLoading}
 							/>
+							<p className="text-xs text-muted-foreground">
+								支持 Markdown：链接{" "}
+								<code className="rounded bg-muted px-1">[文字](网址)</code>、
+								<code className="rounded bg-muted px-1">**加粗**</code>、
+								<code className="rounded bg-muted px-1">*斜体*</code>
+								，直接写网址会显示为文字；换行即换行
+							</p>
 						</div>
 						<Button type="submit" disabled={save.isPending || isLoading}>
 							{save.isPending ? "保存中…" : "保存"}

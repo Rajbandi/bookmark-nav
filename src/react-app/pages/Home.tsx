@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+	lazy,
+	Suspense,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import { Link } from "react-router-dom";
 import {
 	Inbox,
@@ -41,6 +49,9 @@ const subscribeNoop = () => () => {};
 
 // 项目仓库地址(后台「GitHub 链接」开关控制是否展示)
 const GITHUB_REPO_URL = "https://github.com/deerwan/bookmark-nav";
+
+// 页脚 Markdown 渲染:按需加载,不配置页脚的部署零开销
+const FooterContent = lazy(() => import("@/components/footer-content"));
 
 // GitHub 品牌图标:lucide 已移除品牌图标,内联官方 octicon 路径
 function GithubIcon({ className }: { className?: string }) {
@@ -507,7 +518,10 @@ export default function Home() {
 			</main>
 			{site?.footer && (
 				<footer className="border-t py-6 text-center text-sm text-muted-foreground">
-					{site.footer}
+					{/* chunk 就绪前先按纯文本兜底,避免内容跳动 */}
+					<Suspense fallback={site.footer}>
+						<FooterContent text={site.footer} />
+					</Suspense>
 				</footer>
 			)}
 		</div>
