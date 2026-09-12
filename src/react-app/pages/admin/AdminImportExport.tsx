@@ -9,11 +9,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { useImportBookmarks } from "@/lib/admin-queries";
+import { useExportBookmarks, useImportBookmarks } from "@/lib/admin-queries";
 
 export default function AdminImportExport() {
 	const fileRef = useRef<HTMLInputElement>(null);
 	const importBookmarks = useImportBookmarks();
+	const exportBookmarks = useExportBookmarks();
 
 	async function handleFile(file: File | undefined) {
 		if (!file) return;
@@ -74,10 +75,13 @@ export default function AdminImportExport() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<Button variant="outline" asChild>
-						<a href="/api/admin/export" download>
-							<Download className="size-4" /> 下载书签文件
-						</a>
+					<Button
+						variant="outline"
+						onClick={() => exportBookmarks.mutate()}
+						disabled={exportBookmarks.isPending}
+					>
+						<Download className="size-4" />
+						{exportBookmarks.isPending ? "导出中…" : "下载书签文件"}
 					</Button>
 				</CardContent>
 			</Card>

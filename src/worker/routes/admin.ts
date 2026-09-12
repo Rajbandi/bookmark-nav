@@ -514,6 +514,15 @@ ${pageText || "（无）"}`;
 		async (c) => {
 			const db = createDb(c.env.DB);
 			const tree = parseNetscapeHtml(c.req.valid("json").html);
+			// 整棵树一条书签都没有:多半是误传了网页或错误文件,明确报错而非静默"成功 0 个"
+			const countTree = (f: ParsedFolder): number =>
+				f.bookmarks.length + f.children.reduce((n, ch) => n + countTree(ch), 0);
+			if (countTree(tree) === 0) {
+				return c.json(
+					{ error: "未在文件中识别到任何书签,请确认是浏览器导出的书签 HTML 文件" },
+					400,
+				);
+			}
 			// 同名同父级分类复用;同 URL 书签跳过,重复导入不产生脏数据
 			const existingCats = await db.select().from(categories);
 			const catKey = new Map(

@@ -368,6 +368,34 @@ export function useImportBookmarks() {
 	});
 }
 
+export function useExportBookmarks() {
+	return useMutation({
+		mutationFn: async () => {
+			// 必须走 fetch + Blob:导航式下载(<a href download>)会被 SPA 回退拦截,
+			// 保存下来的是前端 index.html 而不是书签文件
+			const res = await client.api.admin.export.$get();
+			if (!res.ok) throw new Error("导出失败,请重试");
+			const blob = await res.blob();
+			const filename =
+				res.headers
+					.get("Content-Disposition")
+					?.match(/filename="([^"]+)"/)?.[1] ??
+				`bookmarks-${new Date().toISOString().slice(0, 10)}.html`;
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+			return filename;
+		},
+		onSuccess: (filename) => toast.success(`已导出 ${filename}`),
+		onError: (e) => toast.error(e.message),
+	});
+}
+
 export function useAdminSettings() {
 	return useQuery({
 		queryKey: ["admin-settings"],

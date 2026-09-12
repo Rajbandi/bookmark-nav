@@ -1,6 +1,7 @@
 import {
 	lazy,
 	Suspense,
+	useDeferredValue,
 	useEffect,
 	useMemo,
 	useRef,
@@ -101,6 +102,7 @@ function BookmarkCard({
 			href={bookmark.url}
 			target="_blank"
 			rel="noreferrer"
+			title={bookmark.title}
 			onClick={() => {
 				// 点击计数上报,不阻塞跳转
 				void client.api.public.bookmarks[":id"].click.$post({
@@ -233,11 +235,15 @@ export default function Home() {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
+	const aiActive = aiSearch && aiResults !== null;
+	// 输入保持即时响应,过滤计算延迟一帧,书签量大时打字不卡
+	const deferredKeyword = useDeferredValue(keyword);
+
 	// 实际展示结果:AI 搜索优先,否则按关键词本地过滤(标题/描述/网址/标签)
 	const displayBookmarks = useMemo(() => {
 		if (aiResults !== null) return aiResults;
 		const all = data?.bookmarks ?? [];
-		const q = keyword.trim().toLowerCase();
+		const q = deferredKeyword.trim().toLowerCase();
 		if (!q) return all;
 		return all.filter((b) =>
 			[b.title, b.description ?? "", b.url, ...b.tags]
@@ -245,8 +251,7 @@ export default function Home() {
 				.toLowerCase()
 				.includes(q),
 		);
-	}, [aiResults, keyword, data]);
-	const aiActive = aiSearch && aiResults !== null;
+	}, [aiResults, deferredKeyword, data]);
 
 	// 分类树按深度优先拍平成小节,子分类标题显示父级路径前缀(超过两级省略为 … / 上级)
 	const grouped = useMemo(() => {
@@ -329,6 +334,7 @@ export default function Home() {
 						<Input
 							ref={searchRef}
 							value={keyword}
+							aria-label="搜索书签"
 							onChange={(e) => {
 								const v = e.target.value;
 								setKeyword(v);
@@ -408,7 +414,7 @@ export default function Home() {
 				</div>
 			</header>
 
-			<main className="mx-auto max-w-6xl px-4 py-8">
+			<main className="mx-auto max-w-6xl px-4 py-8" aria-busy={isLoading || undefined}>
 				{/* 分类锚点导航:后台开关控制,分类少于 3 个时自动隐藏 */}
 				{anchorNav && grouped.length >= 3 && (
 					<nav
