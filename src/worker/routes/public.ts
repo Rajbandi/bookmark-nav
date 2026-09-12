@@ -74,6 +74,7 @@ const PUBLIC_SETTING_KEYS = new Set([
 	"icon.service",
 	"appearance.compact",
 	"appearance.anchorNav",
+	"appearance.style",
 	"showGithubLink",
 ]);
 

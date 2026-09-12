@@ -18,7 +18,6 @@ import { useTheme } from "next-themes";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -174,6 +173,8 @@ export default function Home() {
 	const anchorNav = site?.["appearance.anchorNav"] === "1";
 	// 前台右上角的项目仓库入口:后台可开关
 	const showGithubLink = site?.["showGithubLink"] === "1";
+	// 界面风格:classic 传统卡片 / glass 液态玻璃(index.css 中 .glass 变量预设)
+	const glassStyle = site?.["appearance.style"] === "glass";
 	// 紧凑卡片用自适应列数,分类条目少时行尾不留大片空白
 	const compactGrid = "grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-2";
 	const normalGrid = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
@@ -302,13 +303,65 @@ export default function Home() {
 	}
 
 	return (
-		<div className="min-h-screen bg-background">
+		<div className={`min-h-screen bg-background${glassStyle ? " glass" : ""}`}>
 			<header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
 				<div className="mx-auto flex h-14 max-w-6xl items-center gap-x-3 px-4">
-					<Link to="/" className="shrink-0 text-lg font-bold">
+					{/* 命令栏式布局:站名 | 居中搜索 | 图标组,搜索随 sticky header 始终可达;小屏隐藏站名给搜索让位 */}
+					<Link
+						to="/"
+						className="hidden min-w-0 flex-1 truncate text-lg font-bold sm:block"
+					>
 						{siteName}
 					</Link>
-					<div className="ml-auto flex shrink-0 items-center gap-1">
+					<div className="relative w-full max-w-md">
+						<Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							ref={searchRef}
+							value={keyword}
+							onChange={(e) => {
+								const v = e.target.value;
+								setKeyword(v);
+								if (aiSearch && v.trim()) void runAISearch(v);
+							}}
+							onFocus={() => setSearchFocused(true)}
+							onBlur={() => setSearchFocused(false)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && aiSearch && keyword.trim())
+									void runAISearch(keyword);
+								if (e.key === "Escape") e.currentTarget.blur();
+							}}
+							placeholder={aiSearch ? "用自然语言搜索,如「CSS 工具」…" : "搜索书签…"}
+							className="h-9 rounded-full pr-12 pl-9"
+						/>
+						{aiConfig?.semanticSearch ? (
+							aiLoading ? (
+								<Loader2 className="absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+							) : (
+								<button
+									type="button"
+									onClick={() => setAiSearch((v) => !v)}
+									aria-label="AI 语义搜索"
+									aria-pressed={aiSearch}
+									title="AI 语义搜索"
+									className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full transition-colors hover:bg-muted"
+								>
+									<Sparkles
+										className={`size-4 ${aiSearch ? "text-orange-500" : "text-muted-foreground"}`}
+									/>
+								</button>
+							)
+						) : aiLoading ? (
+							<Loader2 className="absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+						) : (
+							!searchFocused &&
+							!keyword && (
+								<kbd className="pointer-events-none absolute top-1/2 right-3.5 hidden -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:block">
+									{isMac ? "⌘K" : "Ctrl K"}
+								</kbd>
+							)
+						)}
+					</div>
+					<div className="flex flex-1 items-center justify-end gap-1">
 						{showGithubLink && (
 							<Button variant="ghost" size="icon" asChild aria-label="GitHub 仓库">
 								<a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
@@ -345,53 +398,6 @@ export default function Home() {
 			</header>
 
 			<main className="mx-auto max-w-6xl px-4 py-8">
-				{/* 搜索区:独立于 header,整体居中且限制宽度,语义上更聚焦 */}
-				<div className="mx-auto mb-6 flex max-w-2xl flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-					<div className="relative flex-1">
-						<Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
-						<Input
-							ref={searchRef}
-							value={keyword}
-							onChange={(e) => {
-								const v = e.target.value;
-								setKeyword(v);
-								if (aiSearch && v.trim()) void runAISearch(v);
-							}}
-							onFocus={() => setSearchFocused(true)}
-							onBlur={() => setSearchFocused(false)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" && aiSearch && keyword.trim())
-									void runAISearch(keyword);
-								if (e.key === "Escape") e.currentTarget.blur();
-							}}
-							placeholder={aiSearch ? "用自然语言搜索,如「CSS 工具」…" : "搜索书签…"}
-							className="rounded-full pr-12 pl-9"
-						/>
-						{aiLoading && (
-							<Loader2 className="absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-						)}
-						{!aiLoading && !searchFocused && !keyword && (
-							<kbd className="pointer-events-none absolute top-1/2 right-3.5 hidden -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:block">
-								{isMac ? "⌘K" : "Ctrl K"}
-							</kbd>
-						)}
-					</div>
-
-					{aiConfig?.semanticSearch && (
-						<div className="flex shrink-0 items-center gap-1.5 rounded-full border bg-muted/30 px-3 py-2">
-							<Sparkles
-								className={`size-4 ${aiSearch ? "text-orange-500" : "text-muted-foreground"}`}
-							/>
-							<Switch
-								checked={aiSearch}
-								onCheckedChange={setAiSearch}
-								aria-label="AI 语义搜索"
-							/>
-							<span className="text-xs text-muted-foreground">AI 语义</span>
-						</div>
-					)}
-				</div>
-
 				{/* 分类锚点导航:后台开关控制,分类少于 3 个时自动隐藏 */}
 				{anchorNav && grouped.length >= 3 && (
 					<nav

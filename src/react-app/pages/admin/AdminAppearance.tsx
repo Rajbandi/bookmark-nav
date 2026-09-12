@@ -1,4 +1,4 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Droplets, Monitor, Moon, Square, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -13,10 +13,16 @@ export default function AdminAppearance() {
 	const compact = settings?.["appearance.compact"] === "1";
 	const anchorNav = settings?.["appearance.anchorNav"] === "1";
 	const showGithubLink = settings?.["showGithubLink"] === "1";
+	// 界面风格存数据库(区别于明暗主题的浏览器本地偏好),全站统一生效
+	const style = settings?.["appearance.style"] === "glass" ? "glass" : "classic";
 	const themeOptions = [
 		{ value: "system", label: "跟随系统", icon: Monitor },
 		{ value: "light", label: "浅色", icon: Sun },
 		{ value: "dark", label: "深色", icon: Moon },
+	] as const;
+	const styleOptions = [
+		{ value: "classic", label: "经典", icon: Square },
+		{ value: "glass", label: "液态玻璃", icon: Droplets },
 	] as const;
 
 	return (
@@ -39,6 +45,33 @@ export default function AdminAppearance() {
 									theme === value && "border-primary bg-primary/10 text-primary",
 								)}
 								onClick={() => setTheme(value)}
+							>
+								<Icon className="size-4" />
+								{label}
+							</Button>
+						))}
+					</div>
+				</CardContent>
+			</Card>
+			<Card>
+				<CardHeader>
+					<CardTitle>界面风格</CardTitle>
+					<CardDescription>前台导航页的整体视觉风格，保存后刷新前台生效</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<div className="flex flex-wrap gap-2">
+						{styleOptions.map(({ value, label, icon: Icon }) => (
+							<Button
+								key={value}
+								type="button"
+								variant="outline"
+								size="sm"
+								className={cn(
+									"gap-2",
+									style === value && "border-primary bg-primary/10 text-primary",
+								)}
+								onClick={() => save.mutate({ "appearance.style": value })}
+								disabled={save.isPending}
 							>
 								<Icon className="size-4" />
 								{label}

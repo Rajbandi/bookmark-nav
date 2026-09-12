@@ -8,6 +8,8 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
 	"appearance.anchorNav": "0",
 	// 前台右上角默认显示项目仓库入口,便于访客找到源码;不想要可在后台关闭
 	"showGithubLink": "1",
+	// 前台界面风格:classic 传统卡片,glass 液态玻璃(半透明表面 + 渐变背景)
+	"appearance.style": "classic",
 	// 图标服务默认走 favicon.im,部署后无需配置即可显示网站图标
 	"icon.service": "https://favicon.im/{domain}",
 };

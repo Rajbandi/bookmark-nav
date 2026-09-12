@@ -133,3 +133,72 @@
     @apply font-sans;
     }
 }
+
+/* ---------- 液态玻璃风格(后台「界面风格」= 液态玻璃时挂到前台根节点) ---------- */
+/* 只覆盖表面类变量:卡片/弹层/边框半透明化;品牌色、图标浅底等沿用全局值 */
+.glass {
+	/* 圆角整体放大:所有 rounded-* 工具类都是 --radius 的倍数,一处调整全局变圆 */
+	--radius: 1.25rem;
+	--card: oklch(1 0 0 / 55%);
+	--popover: oklch(1 0 0 / 88%);
+	--secondary: oklch(1 0 0 / 50%);
+	--muted: oklch(1 0 0 / 45%);
+	--accent: oklch(1 0 0 / 50%);
+	--border: oklch(1 0 0 / 55%);
+	--input: oklch(1 0 0 / 50%);
+	/* 固定在视口的渐变色斑:滚动时卡片"透出"的色彩缓慢变化,是玻璃感的主要来源 */
+	background-image:
+		radial-gradient(52rem 40rem at 12% -10%, oklch(0.85 0.1 255 / 0.5), transparent 65%),
+		radial-gradient(44rem 36rem at 92% 8%, oklch(0.88 0.09 310 / 0.45), transparent 65%),
+		radial-gradient(56rem 44rem at 40% 110%, oklch(0.88 0.08 195 / 0.45), transparent 62%);
+	background-attachment: fixed;
+}
+
+.dark .glass {
+	--card: oklch(0.32 0 0 / 45%);
+	--popover: oklch(0.26 0 0 / 85%);
+	--secondary: oklch(0.4 0 0 / 40%);
+	--muted: oklch(0.4 0 0 / 35%);
+	--accent: oklch(0.42 0 0 / 40%);
+	--border: oklch(1 0 0 / 12%);
+	--input: oklch(1 0 0 / 14%);
+	background-image:
+		radial-gradient(52rem 40rem at 12% -10%, oklch(0.45 0.11 260 / 0.4), transparent 65%),
+		radial-gradient(44rem 36rem at 92% 8%, oklch(0.4 0.09 310 / 0.32), transparent 65%),
+		radial-gradient(56rem 44rem at 40% 110%, oklch(0.42 0.08 195 / 0.3), transparent 62%);
+}
+
+/* header 悬浮胶囊:全圆角药丸形,浮在页面上方,与内容区同宽对齐 */
+.glass header {
+	top: 0.75rem;
+	width: min(72rem, 100% - 2rem);
+	margin-inline: auto;
+	border: 1px solid oklch(1 0 0 / 50%);
+	border-radius: 9999px;
+	box-shadow: 0 8px 32px oklch(0.35 0.06 260 / 0.14);
+	background-color: oklch(1 0 0 / 45%);
+	-webkit-backdrop-filter: blur(16px) saturate(1.5);
+	backdrop-filter: blur(16px) saturate(1.5);
+}
+
+.dark .glass header {
+	border-color: oklch(1 0 0 / 12%);
+	background-color: oklch(0.3 0 0 / 45%);
+	box-shadow: 0 8px 32px oklch(0 0 0 / 0.4);
+}
+
+/* 页脚在玻璃模式下不加分隔线,靠留白自然过渡 */
+.glass footer {
+	border: none;
+}
+
+/* backdrop-filter 只给搜索框这一处,卡片零 blur,保证长页面滚动性能 */
+.glass header input {
+	background-color: oklch(1 0 0 / 55%);
+	-webkit-backdrop-filter: blur(12px);
+	backdrop-filter: blur(12px);
+}
+
+.dark .glass header input {
+	background-color: oklch(0.3 0 0 / 45%);
+}
