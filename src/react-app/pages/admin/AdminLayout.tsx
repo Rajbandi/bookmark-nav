@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
 	Bookmark,
+	CalendarClock,
 	FolderTree,
 	Home,
 	LogOut,
@@ -29,6 +30,7 @@ const navItems = [
 	{ to: "/admin", end: true, icon: Bookmark, label: "书签管理" },
 	{ to: "/admin/categories", end: false, icon: FolderTree, label: "分类管理" },
 	{ to: "/admin/import-export", end: false, icon: Share2, label: "导入导出" },
+	{ to: "/admin/maintenance", end: false, icon: CalendarClock, label: "自动任务" },
 	{ to: "/admin/settings", end: false, icon: Settings, label: "站点设置" },
 	{ to: "/admin/appearance", end: false, icon: Palette, label: "外观设置" },
 	{ to: "/admin/security", end: false, icon: Shield, label: "安全设置" },

@@ -5,6 +5,7 @@ import { softAuth } from "./middleware/auth";
 import { authRoutes } from "./routes/auth";
 import { publicRoutes } from "./routes/public";
 import { adminRoutes } from "./routes/admin";
+import { runScheduledTasks } from "./lib/maintenance";
 
 const app = new Hono<AppEnv>()
 	// 全局软认证:解析 cookie 里的 JWT,公开接口据此过滤私密内容
@@ -38,4 +39,12 @@ app.notFound((c) => {
 // 前端 Hono RPC client 使用的类型
 export type AppType = typeof app;
 
-export default app;
+// Cron 触发器(wrangler.json triggers):每小时整点触发一次调度器,
+// 按后台「自动任务」里配置的开关与计划(频率/北京时间)判断是否执行死链检测与备份。
+// 计划在后台修改立即生效,无需重新部署。
+export default {
+	fetch: app.fetch,
+	scheduled: (event: ScheduledEvent, env: Env) => {
+		event.waitUntil(runScheduledTasks(env));
+	},
+};

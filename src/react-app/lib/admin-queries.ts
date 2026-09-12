@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { client } from "./api";
+import type { BackupImportPayload } from "../../worker/routes/admin";
 
 export type BookmarkPayload = {
 	title: string;
@@ -368,6 +369,53 @@ export function useImportBookmarks() {
 	});
 }
 
+// 恢复 JSON 备份(buildBackupPayload 产物):合并式,重复跳过,设置仅补缺
+export function useImportJson() {
+	const invalidate = useInvalidate();
+	return useMutation({
+		mutationFn: async (payload: BackupImportPayload) => {
+			const res = await client.api.admin["import-json"].$post({ json: payload });
+			if (!res.ok) throw new Error("恢复失败,请确认文件是本项目导出的 JSON 备份");
+			return res.json();
+		},
+		onSuccess: async (r) => {
+			await invalidate();
+			toast.success(
+				`恢复完成:书签 ${r.bookmarks} 个(跳过 ${r.skipped})、分类 ${r.categories} 个` +
+					(r.settingsFilled ? `,补齐设置 ${r.settingsFilled} 项` : ""),
+			);
+		},
+		onError: (e) => toast.error(e.message),
+	});
+}
+
+// 下载 JSON 备份文件。同样必须走 fetch + Blob:导航式下载会被 SPA 回退拦截
+export function useDownloadBackup() {
+	return useMutation({
+		mutationFn: async () => {
+			const res = await client.api.admin.backup.$get();
+			if (!res.ok) throw new Error("下载失败,请重试");
+			const blob = await res.blob();
+			const filename =
+				res.headers
+					.get("Content-Disposition")
+					?.match(/filename="([^"]+)"/)?.[1] ??
+				`bookmark-nav-backup-${new Date().toISOString().slice(0, 10)}.json`;
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+			return filename;
+		},
+		onSuccess: (filename) => toast.success(`已下载 ${filename}`),
+		onError: (e) => toast.error(e.message),
+	});
+}
+
 export function useExportBookmarks() {
 	return useMutation({
 		mutationFn: async () => {
@@ -392,6 +440,42 @@ export function useExportBookmarks() {
 			return filename;
 		},
 		onSuccess: (filename) => toast.success(`已导出 ${filename}`),
+		onError: (e) => toast.error(e.message),
+	});
+}
+
+export function useBackupNow() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: async () => {
+			const res = await client.api.admin.backup.$post();
+			if (!res.ok) throw new Error("备份失败");
+			return res.json();
+		},
+		onSuccess: async () => {
+			await qc.invalidateQueries({ queryKey: ["admin-settings"] });
+			toast.success("已备份到 R2 存储");
+		},
+		onError: (e) => toast.error(e.message),
+	});
+}
+
+// 立即全量死链检测(与定时任务同一逻辑,不受计划/开关限制)
+export function useRunLinkCheck() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: async () => {
+			const res = await client.api.admin.maintenance["check-links"].$post();
+			if (!res.ok) throw new Error("检测失败,请重试");
+			return res.json();
+		},
+		onSuccess: async (r) => {
+			await qc.invalidateQueries({ queryKey: ["admin-bookmarks"] });
+			toast.success(
+				`检测完成:共 ${r.total} 个书签,死链 ${r.dead} 个` +
+					(r.revived ? `,恢复 ${r.revived} 个` : ""),
+			);
+		},
 		onError: (e) => toast.error(e.message),
 	});
 }

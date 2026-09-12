@@ -29,6 +29,17 @@ if (jwtSecret) {
 	console.log("[prepare-deploy-config] 未设置 JWT_SECRET,跳过");
 }
 
+// R2 备份为可选功能:设置了 R2_BUCKET 构建变量才注入 r2_buckets 绑定,
+// 否则移除该绑定,避免没建存储桶的用户 deploy 直接失败(存储桶需自行创建)
+if (process.env.R2_BUCKET) {
+	config.r2_buckets = [{ binding: "BACKUP", bucket_name: process.env.R2_BUCKET }];
+	changed = true;
+	console.log(`[prepare-deploy-config] 已注入 R2 bucket: ${process.env.R2_BUCKET}`);
+} else if (Array.isArray(config.r2_buckets)) {
+	delete config.r2_buckets;
+	console.log("[prepare-deploy-config] 未设置 R2_BUCKET,已移除 R2 绑定(自动备份功能停用)");
+}
+
 if (changed) {
 	writeFileSync(path, JSON.stringify(config, null, "\t") + "\n");
 }

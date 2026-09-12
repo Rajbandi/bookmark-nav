@@ -118,8 +118,8 @@ function BookmarkCard({
 			<div
 				className={
 					compact
-						? "flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-icon-tile"
-						: "flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-icon-tile"
+						? "flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-icon-tile text-xs"
+						: "flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-icon-tile text-base"
 				}
 			>
 				<BookmarkFavicon

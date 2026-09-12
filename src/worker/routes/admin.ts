@@ -14,6 +14,9 @@ import {
 import type { AppEnv } from "../lib/types";
 import { requireAuth } from "../middleware/auth";
 import { mergeDefaultSettings } from "../lib/settings";
+import { checkUrl } from "../lib/check-url";
+import { backupToR2, buildBackupPayload } from "../lib/backup";
+import { checkAllLinks } from "../lib/maintenance";
 import {
 	buildNetscapeHtml,
 	parseNetscapeHtml,
@@ -88,6 +91,66 @@ const bookmarkInput = z.object({
 	tags: z.array(z.string().min(1).max(30)).max(20).optional(),
 });
 
+// JSON 备份文件的结构(buildBackupPayload 的产物);字段宽松以兼容历史备份,
+// 未知键由 zod 自动剥离,非法行在恢复过程中跳过
+// 供前端导入 hook 复用的备份负载类型
+export type BackupImportPayload = z.input<typeof backupImportSchema>;
+
+const backupImportSchema = z.object({
+	categories: z
+		.array(
+			z.object({
+				id: z.number().int(),
+				name: z.string().min(1).max(50),
+				icon: z.string().max(200).nullish(),
+				parentId: z.number().int().nullish(),
+				sort: z.number().int().optional(),
+				visibility: z.enum(["public", "private"]).optional(),
+			}),
+		)
+		.max(1000),
+	bookmarks: z
+		.array(
+			z.object({
+				id: z.number().int(),
+				title: z.string().min(1).max(200),
+				url: z.string().max(2000),
+				description: z.string().max(500).nullish(),
+				icon: z.string().max(2000).nullish(),
+				categoryId: z.number().int().nullish(),
+				sort: z.number().int().optional(),
+				isPinned: z.boolean().optional(),
+				visibility: z.enum(["public", "private"]).optional(),
+				status: z.enum(["active", "dead"]).optional(),
+				createdAt: z.union([z.number(), z.string()]).optional(),
+			}),
+		)
+		.max(10_000),
+	tags: z
+		.array(z.object({ id: z.number().int(), name: z.string().min(1).max(30) }))
+		.max(1000),
+	bookmarkTags: z
+		.array(z.object({ bookmarkId: z.number().int(), tagId: z.number().int() }))
+		.max(10_000),
+	// 设置兼容两种历史形态:对象(现行)或 {key,value} 行数组(早期备份)
+	settings: z
+		.union([
+			z.record(z.string(), z.string()),
+			z.array(z.object({ key: z.string(), value: z.string() })),
+		])
+		.optional(),
+});
+
+// 备份里的时间可能是 unix 秒(number)或 ISO 字符串,统一转 Date
+function toBackupDate(v: number | string | undefined | null): Date | null {
+	if (typeof v === "number") return new Date(v * 1000);
+	if (typeof v === "string") {
+		const d = new Date(v);
+		return Number.isNaN(d.getTime()) ? null : d;
+	}
+	return null;
+}
+
 // 同步书签标签:upsert 标签名,重建关联,清理孤儿标签
 async function syncTags(db: Db, bookmarkId: number, names: string[]) {
 	await db.delete(bookmarkTags).where(eq(bookmarkTags.bookmarkId, bookmarkId));
@@ -107,35 +170,7 @@ async function syncTags(db: Db, bookmarkId: number, names: string[]) {
 		);
 }
 
-// 检查网址存活:HEAD 优先,不支持/失败时降级 GET;仅 404/410/网络失败判死,防误杀反爬站点
-async function checkUrl(url: string): Promise<boolean> {
-	const headers = {
-		"User-Agent":
-			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
-	};
-	try {
-		const res = await fetch(url, {
-			method: "HEAD",
-			redirect: "follow",
-			headers,
-			signal: AbortSignal.timeout(8000),
-		});
-		if (res.status < 400) return true;
-	} catch {
-		// 降级 GET 再试
-	}
-	try {
-		const res = await fetch(url, {
-			method: "GET",
-			redirect: "follow",
-			headers,
-			signal: AbortSignal.timeout(8000),
-		});
-		return res.status !== 404 && res.status !== 410;
-	} catch {
-		return false;
-	}
-}
+// 检查网址存活:实现在 lib/check-url.ts,供本文件与定时任务共用
 
 // 解析 title / meta 只需页面头部,无需下载完整响应
 const MAX_METADATA_BYTES = 200_000;
@@ -816,6 +851,203 @@ ${pageText || "（无）"}`;
 			return c.json({ ok: true });
 		},
 	)
+	// ---------- 手动备份到 R2(定时任务之外按需触发) ----------
+	.post("/backup", async (c) => {
+		const db = createDb(c.env.DB);
+		const key = await backupToR2(c.env, db);
+		if (!key) {
+			return c.json(
+				{ error: "未配置 R2 存储桶:请创建 bucket 并在 wrangler.json 中确认 BACKUP 绑定" },
+				400,
+			);
+		}
+		return c.json({ key });
+	})
+	// ---------- 手动备份:下载 JSON 快照(与 R2 备份同一数据结构) ----------
+	.get("/backup", async (c) => {
+		const payload = await buildBackupPayload(createDb(c.env.DB));
+		const date = new Date().toISOString().slice(0, 10);
+		return c.body(payload, 200, {
+			"Content-Type": "application/json; charset=utf-8",
+			"Content-Disposition": `attachment; filename="bookmark-nav-backup-${date}.json"`,
+		});
+	})
+	// ---------- 恢复 JSON 备份:合并式导入,重复网址/同名分类自动跳过,设置仅补缺 ----------
+	.post(
+		"/import-json",
+		zValidator("json", backupImportSchema),
+		async (c) => {
+			const db = createDb(c.env.DB);
+			const payload = c.req.valid("json");
+
+			// 1) 分类:按「父级 + 名称」复用现有分类,否则新建;父级必须先于子级入库
+			const existingCats = await db.select().from(categories);
+			const catKey = new Map(
+				existingCats.map((r) => [`${r.parentId ?? 0}:${r.name}`, r.id]),
+			);
+			const catIdMap = new Map<number, number>();
+			let catCount = 0;
+			const pending = [...payload.categories];
+			let progress = true;
+			while (pending.length > 0 && progress) {
+				progress = false;
+				for (let i = pending.length - 1; i >= 0; i--) {
+					const cat = pending[i];
+					const parentMapped =
+						cat.parentId == null ? true : catIdMap.has(cat.parentId);
+					if (!parentMapped) continue;
+					const newParentId =
+						cat.parentId == null ? null : catIdMap.get(cat.parentId)!;
+					const key = `${newParentId ?? 0}:${cat.name}`;
+					let id = catKey.get(key);
+					if (id === undefined) {
+						const [row] = await db
+							.insert(categories)
+							.values({
+								name: cat.name.slice(0, 50),
+								icon: cat.icon ?? null,
+								parentId: newParentId,
+								sort: cat.sort ?? 0,
+								visibility: cat.visibility ?? "public",
+							})
+							.returning({ id: categories.id });
+						id = row.id;
+						catKey.set(key, id);
+						catCount++;
+					}
+					catIdMap.set(cat.id, id);
+					pending.splice(i, 1);
+					progress = true;
+				}
+			}
+			// 父分类缺失的孤儿分类挂到根级,避免数据丢失
+			for (const cat of pending) {
+				const key = `0:${cat.name}`;
+				let id = catKey.get(key);
+				if (id === undefined) {
+					const [row] = await db
+						.insert(categories)
+						.values({
+							name: cat.name.slice(0, 50),
+							icon: cat.icon ?? null,
+							parentId: null,
+							sort: cat.sort ?? 0,
+							visibility: cat.visibility ?? "public",
+						})
+						.returning({ id: categories.id });
+					id = row.id;
+					catKey.set(key, id);
+					catCount++;
+				}
+				catIdMap.set(cat.id, id);
+			}
+
+			// 2) 书签:同 URL 跳过;还原时间戳/置顶/可见性/死链状态
+			const existingUrls = new Set(
+				(await db.select({ url: bookmarks.url }).from(bookmarks)).map((r) => r.url),
+			);
+			const bmIdMap = new Map<number, number>();
+			let bmCount = 0;
+			let skipped = 0;
+			for (const b of payload.bookmarks) {
+				let url = b.url;
+				try {
+					url = new URL(b.url).href;
+				} catch {
+					continue; // 非法网址跳过
+				}
+				if (existingUrls.has(url)) {
+					skipped++;
+					continue;
+				}
+				existingUrls.add(url);
+				const created = toBackupDate(b.createdAt);
+				const [row] = await db
+					.insert(bookmarks)
+					.values({
+						title: b.title.slice(0, 200),
+						url,
+						description: b.description ?? null,
+						icon: b.icon ?? null,
+						categoryId: b.categoryId != null ? (catIdMap.get(b.categoryId) ?? null) : null,
+						sort: b.sort ?? 0,
+						isPinned: b.isPinned ?? false,
+						visibility: b.visibility ?? "public",
+						status: b.status ?? "active",
+						...(created ? { createdAt: created, updatedAt: created } : {}),
+					})
+					.returning({ id: bookmarks.id });
+				bmIdMap.set(b.id, row.id);
+				bmCount++;
+			}
+
+			// 3) 标签与关联:同名复用,只为本次新导入的书签建立关联
+			const existingTags = await db.select().from(tags);
+			const tagNameMap = new Map(existingTags.map((r) => [r.name, r.id]));
+			const tagIdMap = new Map<number, number>();
+			for (const t of payload.tags) {
+				let id = tagNameMap.get(t.name);
+				if (id === undefined) {
+					const [row] = await db
+						.insert(tags)
+						.values({ name: t.name.slice(0, 30) })
+						.returning({ id: tags.id });
+					id = row.id;
+					tagNameMap.set(t.name, id);
+				}
+				tagIdMap.set(t.id, id);
+			}
+			let linkCount = 0;
+			for (const link of payload.bookmarkTags) {
+				const newBmId = bmIdMap.get(link.bookmarkId);
+				const newTagId = tagIdMap.get(link.tagId);
+				if (newBmId === undefined || newTagId === undefined) continue;
+				const exists = await db
+					.select({ bookmarkId: bookmarkTags.bookmarkId })
+					.from(bookmarkTags)
+					.where(
+						sql`${bookmarkTags.bookmarkId} = ${newBmId} AND ${bookmarkTags.tagId} = ${newTagId}`,
+					)
+					.limit(1);
+				if (exists.length > 0) continue;
+				await db
+					.insert(bookmarkTags)
+					.values({ bookmarkId: newBmId, tagId: newTagId });
+				linkCount++;
+			}
+
+			// 4) 站点设置:仅补齐当前缺失的键,绝不覆盖已有配置
+			let settingsFilled = 0;
+			if (payload.settings) {
+				// 行数组形态(早期备份)先归一化为对象
+				const backupSettings = Array.isArray(payload.settings)
+					? Object.fromEntries(payload.settings.map((r) => [r.key, r.value]))
+					: payload.settings;
+				const current = new Map(
+					(await db.select().from(settings)).map((r) => [r.key, r.value]),
+				);
+				for (const [key, value] of Object.entries(backupSettings)) {
+					if (current.has(key)) continue;
+					await db.insert(settings).values({ key, value });
+					settingsFilled++;
+				}
+			}
+
+			return c.json({
+				categories: catCount,
+				bookmarks: bmCount,
+				skipped,
+				tags: tagIdMap.size,
+				links: linkCount,
+				settingsFilled,
+			});
+		},
+	)
+	// ---------- 手动触发全量死链检测(与定时任务同一逻辑,不受计划/开关限制) ----------
+	.post("/maintenance/check-links", async (c) => {
+		const result = await checkAllLinks(createDb(c.env.DB));
+		return c.json(result);
+	})
 	// ---------- AI 连接检测(用表单临时值,不依赖已保存设置) ----------
 	.post("/ai-test", async (c) => {
 		try {

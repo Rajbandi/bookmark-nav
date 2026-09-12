@@ -607,6 +607,17 @@ export default function AdminBookmarks() {
 				</div>
 			</div>
 
+			{/* 定时任务(cron)自动检测的上次结果;开关与计划在「自动任务」页配置,初始关闭故未运行时不显示 */}
+			{settings?.["deadLink.lastRun"] && (
+				<div className="mb-2 flex items-center justify-between gap-3 rounded-xl border bg-muted/30 px-4 py-2">
+					<p className="text-xs text-muted-foreground">
+						上次自动检测:
+						{new Date(settings["deadLink.lastRun"]).toLocaleString("zh-CN")}
+						,发现死链 {settings["deadLink.dead"] ?? 0} 个
+					</p>
+				</div>
+			)}
+
 			{/* 批量操作栏:有选中时显示 */}
 			{selected.size > 0 && (
 				<div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border bg-muted/50 px-4 py-2">

@@ -12,6 +12,12 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
 	"appearance.style": "classic",
 	// 图标服务默认走 favicon.im,部署后无需配置即可显示网站图标
 	"icon.service": "https://favicon.im/{domain}",
+	// 定时任务子开关:初始均关闭,用户可在后台「自动任务」页按需开启
+	"maintenance.checkLinks": "0",
+	"maintenance.backup": "0",
+	// 各任务的运行计划(北京时间):freq=daily|weekly|monthly,每周/每月另有 weekday/monthday
+	"deadLink.schedule": '{"freq":"daily","hour":4,"weekday":1,"monthday":1}',
+	"backup.schedule": '{"freq":"daily","hour":5,"weekday":1,"monthday":1}',
 };
 
 export function mergeDefaultSettings(rows: { key: string; value: string }[]) {

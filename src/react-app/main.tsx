@@ -17,6 +17,7 @@ const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminAppearance = lazy(() => import("./pages/admin/AdminAppearance"));
 const AdminSecurity = lazy(() => import("./pages/admin/AdminSecurity"));
 const AdminImportExport = lazy(() => import("./pages/admin/AdminImportExport"));
+const AdminMaintenance = lazy(() => import("./pages/admin/AdminMaintenance"));
 const AdminAI = lazy(() => import("./pages/admin/AdminAI"));
 
 const queryClient = new QueryClient({
@@ -55,6 +56,7 @@ createRoot(document.getElementById("root")!).render(
 								<Route index element={<AdminBookmarks />} />
 								<Route path="categories" element={<AdminCategories />} />
 								<Route path="import-export" element={<AdminImportExport />} />
+								<Route path="maintenance" element={<AdminMaintenance />} />
 								<Route path="settings" element={<AdminSettings />} />
 								<Route path="appearance" element={<AdminAppearance />} />
 								<Route path="security" element={<AdminSecurity />} />

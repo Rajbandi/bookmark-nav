@@ -11,11 +11,20 @@
 	},
 	"upload_source_maps": true,
 	"keep_vars": true,
+	"triggers": {
+		"crons": ["0 * * * *"]
+	},
 	"assets": {
 		"directory": "./dist/client",
 		"binding": "ASSETS",
 		"not_found_handling": "single-page-application"
 	},
+	"r2_buckets": [
+		{
+			"binding": "BACKUP",
+			"bucket_name": "bookmark-nav-backup"
+		}
+	],
 	"d1_databases": [
 		{
 			"binding": "DB",
