@@ -58,11 +58,15 @@ jobs:
 
       # 手动触发时只能看绿不绿,下载不到包;加上 artifact 让运行详情页可直接下载试用。
       # tag 发布流程不受影响(照常走下面的 softprops 发布到 Releases)。
+      # 注意:`upload-artifact` 默认忽略隐藏文件/目录(连 glob 都匹配不到,因此
+      # `.output/*.zip` 会报 No files found);我们的 zip 在隐藏目录 `.output/`
+      # 里,必须显式开启 `include-hidden-files`(仍不包含 .git 等版本库文件)
       - name: 上传构建产物(供手动运行下载)
         uses: actions/upload-artifact@v4
         with:
           name: bookmark-nav-extension-zips
           path: .output/*.zip
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
 
