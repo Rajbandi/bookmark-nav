@@ -18,7 +18,15 @@
 | `npm run typecheck:ext` | 插件类型检查(tsconfig.ext.json),构建前必跑 |
 | `npm run build:ext` | 构建插件 Chrome 版,输出 `.output/chrome-mv3` |
 | `npm run build:ext:firefox` | 构建插件 Firefox 版,输出 `.output/firefox-mv2` |
-| `npm run zip:ext` | 打包插件 zip(Chrome 版,发布用) |
+| `npm run zip:ext` | 打包插件 zip(Chrome 版) |
+| `npx wxt zip` | 打 Chrome 安装包(`.output/bookmark-nav-<版本>-chrome.zip`) |
+| `npx wxt -b firefox zip` | 打 Firefox 安装包 + 源码包(`-firefox.zip` / `-sources.zip`) |
+| `npx wxt submit init` | 交互式配置各商店发布凭据,生成 `.env.submit` |
+| `npx wxt submit` | 自动提交新版本到商店审核/发布(需先 zip) |
+| `npx wxt submit --dry-run …` | 只校验凭据与 zip,不真正提交 |
+| `npm version patch --no-git-tag-version` | bump 版本(发版用,随后打同版本 tag 触发 CI) |
+
+> 打包与商店上架完整流程见 [publishing.md](./publishing.md);CI/CD 自动构建见 [publishing.md](./publishing.md#六cicd-自动化构建补充渠道)。
 
 ## 本地开发初始化
 

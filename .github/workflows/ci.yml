@@ -1,0 +1,36 @@
+# 持续集成:每次 push / PR 自动做插件质量门禁
+# 目的:防止类型错误、构建失败、lint 问题流进发布产物(如历史出现过的 savedId 低级错误)
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    name: 插件类型检查 + 构建 + lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # package.json 已配 allowScripts 白名单(esbuild / better-sqlite3 / workerd),
+      # npm 11 下 npm ci 会据此放行这些包的安装脚本,无需额外干预
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 插件类型检查
+        run: npm run typecheck:ext
+
+      - name: 构建插件(Chrome)
+        run: npm run build:ext
+
+      - name: 构建插件(Firefox)
+        run: npm run build:ext:firefox
+
+      - name: Lint
+        run: npm run lint

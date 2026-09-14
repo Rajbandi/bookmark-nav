@@ -1,0 +1,65 @@
+# 发版:推送 v* 标签(或手动触发)时,构建插件安装包并发布到 GitHub Releases,
+# 供用户直接下载 zip 手动安装(侧载),作为商店上架之外的即时分发渠道。
+# 详细说明见 docs/publishing.md
+name: Release 插件
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 构建并发布插件安装包
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      # 版本统一:发布流程约定「手动 bump package.json version → 打同版本 vX.Y.Z 标签」,
+      # 这里硬校验 tag 与 package.json 一致,避免出现 tag 是 0.2.0 但 zip 是 0.1.0 的错乱
+      - name: 校验 tag 与 package.json 版本一致
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VER="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$VER" ]; then
+            echo "错误:标签版本($TAG)与 package.json 版本($VER)不一致"
+            exit 1
+          fi
+
+      - name: 插件类型检查
+        run: npm run typecheck:ext
+
+      - name: 构建并打包(Chrome + Firefox + 源码包)
+        run: |
+          npx wxt zip
+          npx wxt -b firefox zip
+
+      # 双保险:确认 Firefox 源码包未夹带敏感文件(.dev.vars/.env)
+      - name: 源码包敏感文件检查
+        run: |
+          if unzip -l .output/*-sources.zip | grep -qE '(\.dev\.vars|\.env)$'; then
+            echo "错误:源码包含敏感文件,已中止发布"
+            exit 1
+          fi
+
+      - name: 发布到 GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Bookmark Nav 插件 ${{ github.ref_name }}"
+          generate_release_notes: true
+          files: |
+            .output/*-chrome.zip
+            .output/*-firefox.zip
+            .output/*-sources.zip

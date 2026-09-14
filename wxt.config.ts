@@ -28,6 +28,11 @@ export default defineConfig({
 			? { browser_specific_settings: { gecko: { id: "bookmark-nav-ext@deer.dev" } } }
 			: {}),
 	}),
+	// 发布打包配置
+	zip: {
+		// Firefox 源码包只装重建所需源码,排除主站构建产物(重建仅依赖 src/)
+		excludeSources: ["dist/**"],
+	},
 	vite: () => ({
 		plugins: [tailwindcss()],
 	}),

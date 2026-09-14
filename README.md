@@ -6,12 +6,12 @@
 
 ## 文档
 
-详细文档已拆分到 [`docs/`](./docs/) 目录:
 
 - [项目说明与部署](./docs/project.md):功能特性、Fork 部署到 Cloudflare、更新版本、许可证
 - [浏览器插件](./docs/extension.md):安装、配置、日常使用、AI 功能、插件开发
 - [开发相关](./docs/development.md):技术栈、架构、目录结构、本地开发、代码规范
 - [命令速查](./docs/commands.md):npm / wrangler / drizzle / wxt 全部常用命令
+- [商店上架与打包](./docs/publishing.md):Chrome Web Store / Firefox AMO / WXT 自动发布
 - [已知限制与建议](./docs/limitations.md):限制清单、遗留建议、后续规划
 
 ## 快速开始
