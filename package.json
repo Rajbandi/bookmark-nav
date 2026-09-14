@@ -63,7 +63,7 @@
     "lint": "eslint .",
     "preview": "npm run build && vite preview",
     "dev:ext": "wxt",
-    "typecheck:ext": "tsc -p tsconfig.ext.json --noEmit",
+    "typecheck:ext": "wxt prepare && tsc -p tsconfig.ext.json --noEmit",
     "build:ext": "wxt -b chrome build",
     "zip:ext": "wxt -b chrome zip",
     "build:ext:firefox": "wxt -b firefox build"

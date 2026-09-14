@@ -10,6 +10,9 @@ export default tseslint.config(
 			"dist",
 			// `wrangler types` 自动生成的声明文件,内含第三方类型与无效 disable 指令
 			"**/worker-configuration.d.ts",
+			// WXT 插件构建产物与自动生成的类型(含 @ts-ignore 等,属生成代码)
+			".output",
+			".wxt",
 		],
 	},
 	{
