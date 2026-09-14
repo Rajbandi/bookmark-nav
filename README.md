@@ -23,6 +23,29 @@ npx wrangler d1 migrations apply DB --local
 npm run dev                      # http://localhost:5173
 ```
 
+## 💰 请喝咖啡
+
+如果这个项目对你有帮助，欢迎赞助支持！
+
+<table>
+  <tr>
+    <td align="center">
+      <strong>微信</strong><br>
+      <img src="./public/zsm.jpeg" alt="微信" width="200">
+    </td>
+    <td align="center">
+      <strong>支付宝</strong><br>
+      <img src="./public/zfb.JPG" alt="支付宝" width="200">
+    </td>
+    <td align="center">
+      <strong>红包码</strong><br>
+      <img src="./public/hbm.PNG" alt="红包码" width="200">
+    </td>
+  </tr>
+</table>
+
+☕ 感谢所有支持者！
+
 ## 许可证
 
 [GPL-3.0](./LICENSE)
