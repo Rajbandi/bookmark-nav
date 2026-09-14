@@ -84,7 +84,7 @@ npx wxt submit --chrome-zip .output/*-chrome.zip \
 | Workflow | 触发 | 作用 |
 | --- | --- | --- |
 | `ci.yml` | push / PR | typecheck:ext + Chrome/Firefox 构建 + lint,防错误流入产物 |
-| `release.yml` | 推送 `v*` 标签 / 手动 | 校验 tag 与版本一致 → 构建打包 → 检查源码包无敏感文件 → 发布到 GitHub Releases |
+| `release.yml` | 推送 `v*` 标签 / 手动 | 校验 tag 与版本一致 → 构建打包 → 检查源码包无敏感文件 → 发布到 GitHub Releases;手动触发时跳过发布,改为上传 zip 到运行详情页的 Artifacts(保留 7 天)供下载试用 |
 
 **发版流程**(约定与 release.yml 的硬校验一致):
 
