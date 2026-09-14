@@ -2,12 +2,28 @@ import { createMiddleware } from "hono/factory";
 import { getCookie } from "hono/cookie";
 import { verify } from "hono/jwt";
 import { eq } from "drizzle-orm";
-import { createDb } from "../db/client";
+import { createDb, type Db } from "../db/client";
 import { users } from "../db/schema";
+import { hashApiToken, isApiToken } from "../lib/token";
 import { AUTH_COOKIE, type AppEnv, type JwtUser } from "../lib/types";
 
 // 软认证:有合法 token 则注入 user,没有也放行(公开接口按登录态过滤 visibility)
 export const softAuth = createMiddleware<AppEnv>(async (c, next) => {
+	// 浏览器插件走 Bearer 令牌(跨域 fetch 不携带 SameSite=Lax 的 cookie)。
+	// 令牌有效则直接用;无效(如已被吊销)时继续回落到 cookie 认证,避免误伤
+	const authz = c.req.header("Authorization") ?? "";
+	const bearer = authz.startsWith("Bearer ") ? authz.slice(7).trim() : "";
+	if (isApiToken(bearer)) {
+		const db = createDb(c.env.DB);
+		const user = await userFromApiToken(db, bearer);
+		if (user) {
+			c.set("user", user satisfies JwtUser);
+			await next();
+			return;
+		}
+		// 令牌无效:不 return,继续走下面的 cookie 分支
+	}
+
 	const token = getCookie(c, AUTH_COOKIE);
 	if (token) {
 		try {
@@ -44,3 +60,22 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 	}
 	await next();
 });
+
+// 按令牌哈希查用户;令牌与账号绑定,无版本校验(改密码时直接吊销)
+export async function userFromApiToken(
+	db: Db,
+	raw: string,
+): Promise<JwtUser | null> {
+	const hash = await hashApiToken(raw);
+	const [user] = await db
+		.select({
+			id: users.id,
+			username: users.username,
+			apiTokenHash: users.apiTokenHash,
+		})
+		.from(users)
+		.where(eq(users.apiTokenHash, hash))
+		.limit(1);
+	if (!user || user.apiTokenHash !== hash) return null;
+	return { id: user.id, username: user.username };
+}

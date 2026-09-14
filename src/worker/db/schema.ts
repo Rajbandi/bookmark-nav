@@ -14,6 +14,11 @@ export const users = sqliteTable("users", {
 	passwordHash: text("password_hash").notNull(),
 	// 改密码时自增,用于让此前签发的 JWT 立即失效
 	tokenVersion: integer("token_version").notNull().default(0),
+	// 浏览器插件等外部客户端的长期访问令牌(只存 SHA-256,明文仅生成时返回一次;null 表示未启用)
+	apiTokenHash: text("api_token_hash"),
+	// 令牌末 4 位,后台展示用于辨认
+	apiTokenHint: text("api_token_hint"),
+	apiTokenCreatedAt: integer("api_token_created_at", { mode: "timestamp" }),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.default(sql`(unixepoch())`),

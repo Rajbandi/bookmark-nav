@@ -1,0 +1,2 @@
+/* 插件所有页面共用样式:直接复用主前端的主题变量与 shadcn 设计语言 */
+@import "../react-app/index.css";

@@ -32,10 +32,12 @@
     "@eslint/js": "9.39.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/chrome": "^0.2.9",
     "@types/node": "^24.10.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.1",
+    "@wxt-dev/module-react": "^1.2.2",
     "better-sqlite3": "^13.0.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "9.39.2",
@@ -46,7 +48,8 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.48.0",
     "vite": "^7.0.0",
-    "wrangler": "^4.115.0"
+    "wrangler": "^4.115.0",
+    "wxt": "^0.21.4"
   },
   "private": true,
   "scripts": {
@@ -57,7 +60,12 @@
     "deploy": "npm run db:migrate && wrangler deploy",
     "dev": "vite",
     "lint": "eslint .",
-    "preview": "npm run build && vite preview"
+    "preview": "npm run build && vite preview",
+    "dev:ext": "wxt",
+    "typecheck:ext": "tsc -p tsconfig.ext.json --noEmit",
+    "build:ext": "wxt -b chrome build",
+    "zip:ext": "wxt -b chrome zip",
+    "build:ext:firefox": "wxt -b firefox build"
   },
   "type": "module",
   "allowScripts": {

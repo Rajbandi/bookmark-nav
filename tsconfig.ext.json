@@ -1,0 +1,9 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["chrome"]
+  },
+  "include": ["src/extension/**/*.ts", "src/extension/**/*.tsx", "wxt.config.ts", ".wxt/wxt.d.ts"],
+  "exclude": ["node_modules", ".output"]
+}

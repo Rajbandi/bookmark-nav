@@ -587,6 +587,60 @@ export type AITestConfig = {
 	model: string;
 };
 
+// 浏览器插件访问令牌
+export type ApiTokenStatus = {
+	exists: boolean;
+	hint: string | null;
+	createdAt: number | null;
+};
+export type ApiTokenCreated = {
+	token: string;
+	hint: string;
+};
+
+export function useApiToken() {
+	return useQuery({
+		queryKey: ["admin-api-token"],
+		queryFn: async () => {
+			const res = await client.api.admin.token.$get();
+			if (!res.ok) throw new Error("加载令牌状态失败");
+			return res.json();
+		},
+	});
+}
+
+export function useCreateApiToken() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: async () => {
+			const res = await client.api.admin.token.$post();
+			if (!res.ok) throw new Error("生成令牌失败");
+			return res.json();
+		},
+		onSuccess: async (data) => {
+			await qc.invalidateQueries({ queryKey: ["admin-api-token"] });
+			toast.success("令牌已生成,请立即复制保存");
+			return data;
+		},
+		onError: (e) => toast.error(e.message),
+	});
+}
+
+export function useRevokeApiToken() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: async () => {
+			const res = await client.api.admin.token.$delete();
+			if (!res.ok) throw new Error("吊销失败");
+		},
+		onSuccess: async () => {
+			await qc.invalidateQueries({ queryKey: ["admin-api-token"] });
+			toast.success("令牌已吊销");
+		},
+		onError: (e) => toast.error(e.message),
+	});
+}
+
 export function useTestAI() {
 	return useMutation({
 		mutationFn: async (cfg: AITestConfig) => {

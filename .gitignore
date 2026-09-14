@@ -78,6 +78,10 @@ coverage
 # nyc test coverage
 .nyc_output
 
+# WXT (浏览器插件) 构建产物与缓存
+.output/
+.wxt/
+
 # Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
 .grunt
 

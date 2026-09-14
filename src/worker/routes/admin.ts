@@ -10,6 +10,7 @@ import {
 	categories,
 	settings,
 	tags,
+	users,
 } from "../db/schema";
 import type { AppEnv } from "../lib/types";
 import { requireAuth } from "../middleware/auth";
@@ -24,6 +25,7 @@ import {
 	type ParsedFolder,
 } from "../lib/netscape";
 import { extractJson, loadAISettings, runChat, testModel } from "../lib/ai";
+import { generateApiToken, hashApiToken, tokenHint } from "../lib/token";
 
 const idParam = zValidator("param", z.object({ id: z.coerce.number().int() }));
 // 与其余批量接口一致限制单次条数:reorder 逐条 UPDATE,不设上限会拖垮请求
@@ -1140,4 +1142,44 @@ ${pageText || "（无）"}`;
 				createdAt: r.createdAt.getTime(),
 			})),
 		});
+	})
+	// 浏览器插件访问令牌状态(只回末 4 位与创建时间,永不回明文)
+	.get("/token", async (c) => {
+		const db = createDb(c.env.DB);
+		const [row] = await db
+			.select({
+				hint: users.apiTokenHint,
+				createdAt: users.apiTokenCreatedAt,
+			})
+			.from(users)
+			.where(eq(users.id, c.get("user")!.id))
+			.limit(1);
+		return c.json({
+			exists: !!row?.hint,
+			hint: row?.hint ?? null,
+			createdAt: row?.createdAt?.getTime() ?? null,
+		});
+	})
+	// 生成(或轮换)令牌:明文仅在本次响应中返回一次,旧令牌同时失效
+	.post("/token", async (c) => {
+		const db = createDb(c.env.DB);
+		const token = generateApiToken();
+		await db
+			.update(users)
+			.set({
+				apiTokenHash: await hashApiToken(token),
+				apiTokenHint: tokenHint(token),
+				apiTokenCreatedAt: new Date(),
+			})
+			.where(eq(users.id, c.get("user")!.id));
+		return c.json({ token, hint: tokenHint(token) });
+	})
+	// 吊销令牌:立即失效,插件下次请求收到 401
+	.delete("/token", async (c) => {
+		const db = createDb(c.env.DB);
+		await db
+			.update(users)
+			.set({ apiTokenHash: null, apiTokenHint: null, apiTokenCreatedAt: null })
+			.where(eq(users.id, c.get("user")!.id));
+		return c.json({ ok: true });
 	});

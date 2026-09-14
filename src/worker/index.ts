@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { cors } from "hono/cors";
 import type { AppEnv } from "./lib/types";
 import { softAuth } from "./middleware/auth";
 import { authRoutes } from "./routes/auth";
@@ -8,7 +9,24 @@ import { adminRoutes } from "./routes/admin";
 import { runScheduledTasks } from "./lib/maintenance";
 
 const app = new Hono<AppEnv>()
-	// 全局软认证:解析 cookie 里的 JWT,公开接口据此过滤私密内容
+	// CORS:仅为浏览器插件放行(插件 background 的跨域 fetch 不带 cookie,
+	// 认证全靠 Authorization: Bearer 令牌,普通网站拿不到令牌,也就跨不了域)。
+	// 注意 credentials 必须为 false:不与 cookie 认证混用,避免引入 CSRF 面
+	.use(
+		"/api/*",
+		cors({
+			origin: (origin) =>
+				/^(chrome|moz|safari-web)-extension:\/\/[a-z0-9-]+$/i.test(origin)
+					? origin
+					: null,
+			allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+			allowHeaders: ["Authorization", "Content-Type"],
+			// 显式关闭凭据:插件只用 Bearer 令牌,绝不与 cookie 认证混用,杜绝 CSRF 面
+			credentials: false,
+			maxAge: 86_400,
+		}),
+	)
+	// 全局软认证:解析 cookie 里的 JWT 或 Bearer 令牌,公开接口据此过滤私密内容
 	.use("/api/*", softAuth)
 	// 受登录态影响的响应一律禁止共享缓存,防止私密书签泄露
 	.use("/api/*", async (c, next) => {
