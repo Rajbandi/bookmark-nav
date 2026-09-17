@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { useSiteSettings } from "@/lib/queries";
 
-// 浏览器标签页标题跟随后台「站点名称」设置,未配置时用默认名
+// Use the configured site name for the browser tab title, falling back to the default.
 export function TitleSync() {
 	const { data: site } = useSiteSettings();
 	useEffect(() => {
-		document.title = site?.siteName || "书签导航";
+		document.title = site?.siteName || "Bookmark Nav";
 	}, [site?.siteName]);
 	return null;
 }

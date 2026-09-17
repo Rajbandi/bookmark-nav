@@ -65,7 +65,7 @@ import {
 	type BookmarkPayload,
 } from "@/lib/admin-queries";
 
-// 编辑/新建书签表单弹窗
+// Dialog for creating and editing bookmarks.
 function BookmarkDialog({
 	bookmark,
 	categories,
@@ -87,8 +87,8 @@ function BookmarkDialog({
 	const [form, setForm] = useState<BookmarkPayload>({ title: "", url: "" });
 	const flatCats = flattenCategoryTree(categories);
 
-	// 弹窗打开时同步表单初始值(open 由父组件控制,不能依赖 onOpenChange 回调)。
-	// 用渲染期派生代替 effect:effect 会额外触发一次渲染,且被 lint 规则禁止。
+	// Initialize the form when the parent opens the dialog; onOpenChange is not called for this.
+	// Derive state during render to avoid an extra render and the lint restriction on effect-based updates.
 	const [resetToken, setResetToken] = useState({ open, bookmark });
 	if (resetToken.open !== open || resetToken.bookmark !== bookmark) {
 		setResetToken({ open, bookmark });
@@ -141,7 +141,7 @@ function BookmarkDialog({
 			await save.mutateAsync({ id: bookmark?.id, data: form });
 			onOpenChange(false);
 		} catch {
-			// 失败时保持弹窗打开,错误提示由 mutation 的 onError 负责
+			// Keep the dialog open on failure; the mutation onError displays the error.
 		}
 	}
 
@@ -149,11 +149,11 @@ function BookmarkDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>{bookmark ? "编辑书签" : "新建书签"}</DialogTitle>
+					<DialogTitle>{bookmark ? "Edit bookmark" : "Add bookmark"}</DialogTitle>
 				</DialogHeader>
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div className="space-y-2">
-						<Label htmlFor="bm-url">网址</Label>
+						<Label htmlFor="bm-url">URL</Label>
 						<div className="flex gap-2">
 							<Input
 								id="bm-url"
@@ -168,10 +168,10 @@ function BookmarkDialog({
 									type="button"
 									onClick={handleFetchMetaAI}
 									disabled={!form.url || fetchMetaAI.isPending}
-									title="使用 AI 智能提取标题、描述、标签和图标"
+									title="Use AI to extract the title, description, tags, and icon"
 								>
 									<Wand2 className="size-4" />
-									{fetchMetaAI.isPending ? "AI 分析中…" : "AI 填充"}
+									{fetchMetaAI.isPending ? "Analyzing with AI…" : "AI autofill"}
 								</Button>
 							)}
 							<Button
@@ -179,15 +179,15 @@ function BookmarkDialog({
 								variant="outline"
 								onClick={handleFetchMeta}
 								disabled={!form.url || fetchMeta.isPending}
-								title="自动抓取标题/描述/图标"
+								title="Fetch the title, description, and icon automatically"
 							>
 								<Globe className="size-4" />
-								{fetchMeta.isPending ? "抓取中…" : "抓取"}
+								{fetchMeta.isPending ? "Fetching…" : "Fetch"}
 							</Button>
 						</div>
 					</div>
 					<div className="space-y-2">
-						<Label htmlFor="bm-title">标题</Label>
+						<Label htmlFor="bm-title">Title</Label>
 						<Input
 							id="bm-title"
 							value={form.title}
@@ -196,7 +196,7 @@ function BookmarkDialog({
 						/>
 					</div>
 					<div className="space-y-2">
-						<Label htmlFor="bm-desc">描述</Label>
+						<Label htmlFor="bm-desc">Description</Label>
 						<Textarea
 							id="bm-desc"
 							value={form.description ?? ""}
@@ -206,7 +206,7 @@ function BookmarkDialog({
 							</div>
 							<div className="grid grid-cols-2 gap-4">
 							<div className="space-y-2">
-							<Label>分类</Label>
+							<Label>Category</Label>
 							<Select
 								value={form.categoryId != null ? String(form.categoryId) : "none"}
 								onValueChange={(v) =>
@@ -217,7 +217,7 @@ function BookmarkDialog({
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="none">未分类</SelectItem>
+									<SelectItem value="none">Uncategorized</SelectItem>
 									{flatCats.map(({ category: c, path }) => (
 										<SelectItem key={c.id} value={String(c.id)}>
 											{path}
@@ -227,7 +227,7 @@ function BookmarkDialog({
 							</Select>
 							</div>
 							<div className="space-y-2">
-							<Label htmlFor="bm-tags">标签(逗号分隔)</Label>
+							<Label htmlFor="bm-tags">Tags (comma-separated)</Label>
 							<Input
 								id="bm-tags"
 								value={(form.tags ?? []).join(", ")}
@@ -240,12 +240,12 @@ function BookmarkDialog({
 											.filter(Boolean),
 									})
 								}
-								placeholder="工具, 文档"
+								placeholder="tools, documentation"
 							/>
 							</div>
 							</div>
 					<div className="space-y-2">
-						<Label htmlFor="bm-icon">图标地址(留空则按「系统设置 → 图标获取」自动生成)</Label>
+						<Label htmlFor="bm-icon">Icon URL (leave blank to use Site settings → Icons)</Label>
 						<Input
 							id="bm-icon"
 							value={form.icon ?? ""}
@@ -260,22 +260,22 @@ function BookmarkDialog({
 									setForm({ ...form, visibility: v ? "private" : "public" })
 								}
 							/>
-							私密(仅登录可见)
+							Private (visible only when signed in)
 						</label>
 						<label className="flex items-center gap-2 text-sm">
 							<Switch
 								checked={!!form.isPinned}
 								onCheckedChange={(v) => setForm({ ...form, isPinned: v })}
 							/>
-							置顶
+							Pinned
 						</label>
 					</div>
 					<div className="flex justify-end gap-2">
 						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-							取消
+							Cancel
 						</Button>
 						<Button type="submit" disabled={save.isPending}>
-							{save.isPending ? "保存中…" : "保存"}
+							{save.isPending ? "Saving…" : "Save"}
 						</Button>
 					</div>
 				</form>
@@ -284,7 +284,7 @@ function BookmarkDialog({
 	);
 }
 
-// 可拖拽的表格行
+// Draggable table row.
 function SortableRow({
 	bookmark,
 	categoryName,
@@ -323,7 +323,7 @@ function SortableRow({
 			className={isDragging ? "relative z-10 bg-muted" : undefined}
 		>
 			<TableCell className="w-8">
-				<Checkbox checked={selected} onCheckedChange={onToggleSelect} aria-label="选择" />
+				<Checkbox checked={selected} onCheckedChange={onToggleSelect} aria-label="Select" />
 			</TableCell>
 			<TableCell className="w-8 cursor-grab" {...attributes} {...listeners}>
 				<GripVertical className="size-4 text-muted-foreground" />
@@ -338,7 +338,7 @@ function SortableRow({
 					<span className="max-w-52 truncate font-medium">{bookmark.title}</span>
 					{bookmark.status === "dead" && (
 						<Badge variant="destructive" className="shrink-0 px-1.5 py-0 text-xs">
-							死链
+							Broken link
 						</Badge>
 					)}
 					{bookmark.isPinned && <Pin className="size-3.5 shrink-0 text-amber-500" />}
@@ -369,8 +369,8 @@ function SortableRow({
 							size="icon-sm"
 							onClick={onSummarize}
 							disabled={summarizePending}
-							aria-label="AI 摘要"
-							title="使用 AI 生成内容摘要"
+							aria-label="AI summary"
+							title="Generate a summary with AI"
 						>
 							<Wand2 className="size-4 text-sky-500" />
 						</Button>
@@ -381,13 +381,13 @@ function SortableRow({
 							size="icon-sm"
 							onClick={onRepair}
 							disabled={repairPending}
-							aria-label="AI 修复"
-							title="使用 AI 推断替代链接"
+							aria-label="AI repair"
+							title="Suggest an alternative URL with AI"
 						>
 							<Wand2 className="size-4 text-orange-500" />
 						</Button>
 					)}
-					<Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label="编辑">
+					<Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label="Edit">
 						<Pencil className="size-4" />
 					</Button>
 					<Button
@@ -395,7 +395,7 @@ function SortableRow({
 						size="icon-sm"
 						className="text-destructive"
 						onClick={onDelete}
-						aria-label="删除"
+						aria-label="Delete"
 					>
 						<Trash2 className="size-4" />
 					</Button>
@@ -438,12 +438,12 @@ export default function AdminBookmarks() {
 	const [selected, setSelected] = useState<Set<number>>(new Set());
 	const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
-	// 用 useMemo 稳定引用:否则每次渲染都产出新数组,会让下游 useMemo 全部失效
+	// Keep references stable with useMemo so downstream memoization is not invalidated on every render.
 	const categories: Category[] = useMemo(
 		() => (catData?.categories ?? []) as Category[],
 		[catData],
 	);
-	// 拍平分类树,下拉框/表格里展示完整路径
+	// Flatten categories and show full paths in selectors and tables.
 	const flatCats = useMemo(() => flattenCategoryTree(categories), [categories]);
 	const catName = useMemo(
 		() => new Map(flatCats.map(({ category: c, path }) => [c.id, path])),
@@ -463,7 +463,7 @@ export default function AdminBookmarks() {
 		[data],
 	);
 
-	// 分批检测全部书签,进度实时显示在按钮上
+	// Check all bookmarks in batches and show progress on the button.
 	function handleCheckLinks() {
 		const ids = ((data?.bookmarks ?? []) as Bookmark[]).map((b) => b.id);
 		if (ids.length === 0 || checkLinks.isPending) return;
@@ -479,7 +479,7 @@ export default function AdminBookmarks() {
 			const r = await repairLink.mutateAsync({ title: b.title, url: b.url });
 			setRepairResult({ title: b.title, url: b.url, ...r });
 		} catch {
-			// 错误提示已由 mutation 的 onError 统一弹出
+			// The mutation onError already displays the error.
 		}
 	}
 
@@ -492,7 +492,7 @@ export default function AdminBookmarks() {
 			});
 			setSummaryResult({ title: b.title, url: b.url, summary: r.summary });
 		} catch {
-			// 错误提示已由 mutation 的 onError 统一弹出
+			// The mutation onError already displays the error.
 		}
 	}
 
@@ -500,7 +500,7 @@ export default function AdminBookmarks() {
 		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
 	);
 
-	// 当前筛选结果中已选中的数量,表头全选框据此展示全选/半选
+	// Count selected items in the current results to determine the header checkbox state.
 	const selectedInView = bookmarks.filter((b) => selected.has(b.id)).length;
 
 	function toggleSelect(id: number) {
@@ -512,7 +512,7 @@ export default function AdminBookmarks() {
 		});
 	}
 
-	// 全选/取消全选仅作用于当前筛选结果
+	// Select all and clear selection apply only to the current filtered results.
 	function toggleSelectAll() {
 		setSelected((prev) => {
 			const next = new Set(prev);
@@ -534,8 +534,8 @@ export default function AdminBookmarks() {
 
 	function handleBatchDelete() {
 		setConfirmState({
-			title: `确定删除选中的 ${selected.size} 个书签?`,
-			description: "删除后不可恢复",
+			title: `Delete the selected ${selected.size} bookmarks?`,
+			description: "This cannot be undone.",
 			onConfirm: () =>
 				batchDel.mutate([...selected], { onSuccess: () => setSelected(new Set()) }),
 		});
@@ -544,15 +544,15 @@ export default function AdminBookmarks() {
 	function handleDragEnd(e: DragEndEvent) {
 		const { active, over } = e;
 		if (!over || active.id === over.id) return;
-		// 必须基于完整列表重排:bookmarks 是当前筛选后的子集,
-		// 直接回写子集会把它们整体插到全局最前,打乱其余书签的顺序
+		// Reorder using the full list because bookmarks contains only the filtered subset.
+		// Writing the subset directly would move it to the front and disrupt other bookmarks.
 		const all = (data?.bookmarks ?? []) as Bookmark[];
 		const from = all.find((b) => b.id === active.id);
 		const to = all.find((b) => b.id === over.id);
 		if (!from || !to) return;
-		// 后端排序是 desc(isPinned) 优先于 sort,跨置顶分组拖拽不会生效,直接提示
+		// The backend sorts by pinned status before sort order, so reject dragging between these groups.
 		if (from.isPinned !== to.isPinned) {
-			toast.warning("置顶与非置顶书签不能混合排序");
+			toast.warning("Pinned and unpinned bookmarks must be sorted separately.");
 			return;
 		}
 		const oldIndex = all.findIndex((b) => b.id === active.id);
@@ -562,7 +562,7 @@ export default function AdminBookmarks() {
 
 	return (
 		<div className="mx-auto max-w-5xl">
-			{/* 操作工具栏 */}
+			{/* Action toolbar. */}
 			<div className="mb-4 flex flex-wrap items-center justify-end gap-3">
 				<div className="flex flex-wrap items-center gap-2">
 					{deadCount > 0 && (
@@ -571,7 +571,7 @@ export default function AdminBookmarks() {
 							size="sm"
 							onClick={() => setOnlyDead((v) => !v)}
 						>
-							死链 {deadCount}
+							Broken link {deadCount}
 						</Button>
 					)}
 					<Button
@@ -580,15 +580,15 @@ export default function AdminBookmarks() {
 						disabled={checkLinks.isPending || isLoading}
 					>
 						<HeartPulse className="size-4" />
-						{checkProgress ? "检测中…" : "死链检测"}
+						{checkProgress ? "Checking…" : "Check broken links"}
 					</Button>
 					<Select value={filterCat} onValueChange={setFilterCat}>
 						<SelectTrigger className="w-36">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="all">全部分类</SelectItem>
-							<SelectItem value="none">未分类</SelectItem>
+							<SelectItem value="all">All categories</SelectItem>
+							<SelectItem value="none">Uncategorized</SelectItem>
 							{flatCats.map(({ category: c, path }) => (
 								<SelectItem key={c.id} value={String(c.id)}>
 									{path}
@@ -602,32 +602,32 @@ export default function AdminBookmarks() {
 							setDialogOpen(true);
 						}}
 					>
-						<Plus className="size-4" /> 新建书签
+						<Plus className="size-4" /> Add bookmark
 					</Button>
 				</div>
 			</div>
 
-			{/* 定时任务(cron)自动检测的上次结果;开关与计划在「自动任务」页配置,初始关闭故未运行时不显示 */}
+			{/* Latest scheduled link check result. Configure the initially disabled task on Scheduled tasks. */}
 			{settings?.["deadLink.lastRun"] && (
 				<div className="mb-2 flex items-center justify-between gap-3 rounded-xl border bg-muted/30 px-4 py-2">
 					<p className="text-xs text-muted-foreground">
-						上次自动检测:
-						{new Date(settings["deadLink.lastRun"]).toLocaleString("zh-CN")}
-						,发现死链 {settings["deadLink.dead"] ?? 0} 个
+						Last automatic check:{" "}
+						{new Date(settings["deadLink.lastRun"]).toLocaleString("en-US")}
+						; broken links found: {settings["deadLink.dead"] ?? 0}
 					</p>
 				</div>
 			)}
 
-			{/* 批量操作栏:有选中时显示 */}
+			{/* Show bulk actions when items are selected. */}
 			{selected.size > 0 && (
 				<div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border bg-muted/50 px-4 py-2">
-					<span className="text-sm font-medium">已选 {selected.size} 项</span>
+					<span className="text-sm font-medium">{selected.size} selected</span>
 					<Select value="" onValueChange={handleBatchMove}>
 						<SelectTrigger className="h-8 w-40" disabled={batchMove.isPending}>
-							<SelectValue placeholder="移动到分类…" />
+							<SelectValue placeholder="Move to category…" />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="none">未分类</SelectItem>
+							<SelectItem value="none">Uncategorized</SelectItem>
 							{flatCats.map(({ category: c, path }) => (
 								<SelectItem key={c.id} value={String(c.id)}>
 									{path}
@@ -642,15 +642,15 @@ export default function AdminBookmarks() {
 						disabled={batchDel.isPending}
 					>
 						<Trash2 className="size-4" />
-						{batchDel.isPending ? "删除中…" : "删除"}
+						{batchDel.isPending ? "Deleting…" : "Delete"}
 					</Button>
 					<Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-						取消选择
+						Clear selection
 					</Button>
 				</div>
 			)}
 
-			{/* 死链检测进度条 */}
+			{/* Link check progress. */}
 			{checkProgress && (
 				<div className="mb-4 flex items-center gap-3 rounded-xl border bg-background px-4 py-3">
 					<Progress
@@ -682,15 +682,15 @@ export default function AdminBookmarks() {
 													: false
 										}
 										onCheckedChange={toggleSelectAll}
-										aria-label="全选"
+										aria-label="Select all"
 									/>
 								</TableHead>
 								<TableHead className="w-8" />
-								<TableHead>书签</TableHead>
-								<TableHead>分类</TableHead>
-								<TableHead>标签</TableHead>
-								<TableHead className="text-center">点击</TableHead>
-								<TableHead className="text-right">操作</TableHead>
+								<TableHead>Bookmarks</TableHead>
+								<TableHead>Category</TableHead>
+								<TableHead>Tags</TableHead>
+								<TableHead className="text-center">Clicks</TableHead>
+								<TableHead className="text-right">Actions</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -707,7 +707,7 @@ export default function AdminBookmarks() {
 										categoryName={
 											b.categoryId !== null
 												? (catName.get(b.categoryId) ?? "-")
-												: "未分类"
+												: "Uncategorized"
 										}
 										onEdit={() => {
 											setEditing(b);
@@ -715,8 +715,8 @@ export default function AdminBookmarks() {
 										}}
 										onDelete={() => {
 											setConfirmState({
-												title: `确定删除「${b.title}」?`,
-												description: "删除后不可恢复",
+												title: `Delete “${b.title}”?`,
+												description: "This cannot be undone.",
 												onConfirm: () => del.mutate(b.id),
 											});
 										}}
@@ -740,10 +740,10 @@ summarizePending={summarize.isPending}
 					</Table>
 				</DndContext>
 				{isLoading && (
-					<p className="py-10 text-center text-muted-foreground">加载中…</p>
+					<p className="py-10 text-center text-muted-foreground">Loading…</p>
 				)}
 				{!isLoading && bookmarks.length === 0 && (
-					<p className="py-10 text-center text-muted-foreground">暂无书签</p>
+					<p className="py-10 text-center text-muted-foreground">No bookmarks yet</p>
 				)}
 			</div>
 
@@ -760,20 +760,20 @@ summarizePending={summarize.isPending}
 			<Dialog open={repairResult !== null} onOpenChange={(o) => !o && setRepairResult(null)}>
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
-						<DialogTitle>AI 死链修复建议</DialogTitle>
+						<DialogTitle>AI broken link repair suggestions</DialogTitle>
 					</DialogHeader>
 					{repairResult && (
 						<div className="space-y-3 text-sm">
 							<div>
-								<span className="text-muted-foreground">标题：</span>
+								<span className="text-muted-foreground">Title:</span>
 								{repairResult.title}
 							</div>
 							<div>
-								<span className="text-muted-foreground">原链接：</span>
+								<span className="text-muted-foreground">Original URL:</span>
 								<span className="break-all">{repairResult.url}</span>
 							</div>
 							<div>
-								<span className="text-muted-foreground">AI 建议替代：</span>
+								<span className="text-muted-foreground">Suggested alternative:</span>
 								{repairResult.alternative ? (
 									<a
 										href={repairResult.alternative}
@@ -784,11 +784,11 @@ summarizePending={summarize.isPending}
 										{repairResult.alternative}
 									</a>
 								) : (
-									<span className="text-muted-foreground">未找到</span>
+									<span className="text-muted-foreground">None found</span>
 								)}
 							</div>
 							<div>
-								<span className="text-muted-foreground">存档链接：</span>
+								<span className="text-muted-foreground">Archive URL:</span>
 								<a
 									href={repairResult.wayback}
 									target="_blank"
@@ -803,16 +803,16 @@ summarizePending={summarize.isPending}
 							)}
 							<div className="flex justify-end gap-2 pt-1">
 								<Button variant="outline" onClick={() => setRepairResult(null)}>
-									关闭
+									Close
 								</Button>
 								{repairResult.alternative && (
 									<Button
 										onClick={() => {
 											navigator.clipboard?.writeText(repairResult.alternative!);
-											toast.success("已复制替代链接");
+											toast.success("Alternative URL copied");
 										}}
 									>
-										复制替代链接
+										Copy alternative URL
 									</Button>
 								)}
 							</div>
@@ -827,16 +827,16 @@ summarizePending={summarize.isPending}
 			>
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
-						<DialogTitle>AI 内容摘要</DialogTitle>
+						<DialogTitle>AI content summary</DialogTitle>
 					</DialogHeader>
 					{summaryResult && (
 						<div className="space-y-3 text-sm">
 							<div>
-								<span className="text-muted-foreground">标题：</span>
+								<span className="text-muted-foreground">Title:</span>
 								{summaryResult.title}
 							</div>
 							<div>
-								<span className="text-muted-foreground">链接：</span>
+								<span className="text-muted-foreground">URL:</span>
 								<span className="break-all">{summaryResult.url}</span>
 							</div>
 							<div className="rounded-lg border bg-muted/50 p-3">
@@ -844,15 +844,15 @@ summarizePending={summarize.isPending}
 							</div>
 							<div className="flex justify-end gap-2 pt-1">
 								<Button variant="outline" onClick={() => setSummaryResult(null)}>
-									关闭
+									Close
 								</Button>
 								<Button
 									onClick={() => {
 										navigator.clipboard?.writeText(summaryResult.summary);
-										toast.success("已复制摘要");
+										toast.success("Summary copied");
 									}}
 								>
-									复制摘要
+									Copy summary
 								</Button>
 							</div>
 						</div>

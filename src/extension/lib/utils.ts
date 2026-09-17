@@ -1,4 +1,4 @@
-// shim:WXT 把 "@" 固定映射到插件 srcDir(src/extension),
-// 主前端 shadcn/ui 组件内部的 `import { cn } from "@/lib/utils"` 会解析到这里,
-// 因此在此转发到真正的实现,让插件直接复用主前端的组件
+// Shim: WXT fixes the @ alias to the extension srcDir (src/extension).
+// Shared shadcn/ui imports of `@/lib/utils` resolve here.
+// Forward them to the actual implementation so the extension can reuse frontend components.
 export { cn } from "../../react-app/lib/utils";

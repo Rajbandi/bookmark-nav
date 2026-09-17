@@ -21,7 +21,7 @@ export type CategoryPayload = {
 	visibility?: "public" | "private";
 };
 
-// 变更成功后统一失效前台列表与后台列表
+// Invalidate both public and admin lists after successful changes.
 function useInvalidate() {
 	const qc = useQueryClient();
 	return () =>
@@ -37,7 +37,7 @@ export function useAdminBookmarks() {
 		queryKey: ["admin-bookmarks"],
 		queryFn: async () => {
 			const res = await client.api.admin.bookmarks.$get();
-			if (!res.ok) throw new Error("加载书签失败");
+			if (!res.ok) throw new Error("Could not load bookmarks");
 			return res.json();
 		},
 	});
@@ -48,7 +48,7 @@ export function useAdminCategories() {
 		queryKey: ["admin-categories"],
 		queryFn: async () => {
 			const res = await client.api.admin.categories.$get();
-			if (!res.ok) throw new Error("加载分类失败");
+			if (!res.ok) throw new Error("Could not load categories");
 			return res.json();
 		},
 	});
@@ -64,12 +64,12 @@ export function useSaveBookmark() {
 						json: data,
 					})
 				: await client.api.admin.bookmarks.$post({ json: data });
-			if (!res.ok) throw new Error("保存失败");
+			if (!res.ok) throw new Error("Could not save");
 			return res.json();
 		},
 		onSuccess: async () => {
 			await invalidate();
-			toast.success("已保存");
+			toast.success("Saved");
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -82,11 +82,11 @@ export function useDeleteBookmark() {
 			const res = await client.api.admin.bookmarks[":id"].$delete({
 				param: { id: String(id) },
 			});
-			if (!res.ok) throw new Error("删除失败");
+			if (!res.ok) throw new Error("Could not delete");
 		},
 		onSuccess: async () => {
 			await invalidate();
-			toast.success("已删除");
+			toast.success("Deleted");
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -97,7 +97,7 @@ export function useReorderBookmarks() {
 	return useMutation({
 		mutationFn: async (ids: number[]) => {
 			const res = await client.api.admin.bookmarks.reorder.$put({ json: { ids } });
-			if (!res.ok) throw new Error("排序保存失败");
+			if (!res.ok) throw new Error("Could not save order");
 		},
 		onSuccess: () => invalidate(),
 		onError: (e) => toast.error(e.message),
@@ -115,15 +115,15 @@ export function useSaveCategory() {
 					})
 				: await client.api.admin.categories.$post({ json: data });
 			if (!res.ok) {
-				// 透出后端具体原因(如层级超限/循环嵌套)
+				// Show specific backend errors, such as depth limits or circular nesting.
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "保存失败");
+				throw new Error(body?.error ?? "Could not save");
 			}
 			return res.json();
 		},
 		onSuccess: async () => {
 			await invalidate();
-			toast.success("已保存");
+			toast.success("Saved");
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -136,11 +136,11 @@ export function useDeleteCategory() {
 			const res = await client.api.admin.categories[":id"].$delete({
 				param: { id: String(id) },
 			});
-			if (!res.ok) throw new Error("删除失败");
+			if (!res.ok) throw new Error("Could not delete");
 		},
 		onSuccess: async () => {
 			await invalidate();
-			toast.success("已删除");
+			toast.success("Deleted");
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -151,7 +151,7 @@ export function useReorderCategories() {
 	return useMutation({
 		mutationFn: async (ids: number[]) => {
 			const res = await client.api.admin.categories.reorder.$put({ json: { ids } });
-			if (!res.ok) throw new Error("排序保存失败");
+			if (!res.ok) throw new Error("Could not save order");
 		},
 		onSuccess: () => invalidate(),
 		onError: (e) => toast.error(e.message),
@@ -162,7 +162,7 @@ export function useFetchMetadata() {
 	return useMutation({
 		mutationFn: async (url: string) => {
 			const res = await client.api.admin.metadata.$post({ json: { url } });
-			if (!res.ok) throw new Error("抓取失败,请检查网址是否可访问");
+			if (!res.ok) throw new Error("Could not fetch the page. Check that the URL is accessible.");
 			return res.json() as Promise<{
 				title: string | null;
 				description: string | null;
@@ -179,7 +179,7 @@ export function useFetchMetadataAI() {
 			const res = await client.api.admin["metadata-ai"].$post({ json: { url } });
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "AI 分析失败");
+				throw new Error(body?.error ?? "AI analysis failed");
 			}
 			return res.json() as Promise<{
 				title: string | null;
@@ -199,7 +199,7 @@ export function useSuggestTags() {
 			const res = await client.api.admin["suggest-tags"].$post({ json: input });
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "AI 标签推荐失败");
+				throw new Error(body?.error ?? "AI tag suggestions failed");
 			}
 			return res.json() as Promise<{ tags: string[] }>;
 		},
@@ -213,7 +213,7 @@ export function useSuggestCategory() {
 			const res = await client.api.admin["suggest-category"].$post({ json: input });
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "AI 分类建议失败");
+				throw new Error(body?.error ?? "AI category suggestions failed");
 			}
 			return res.json() as Promise<{
 				categoryId: number | null;
@@ -232,7 +232,7 @@ export function useRepairLink() {
 			const res = await client.api.admin["repair-link"].$post({ json: input });
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "AI 死链修复失败");
+				throw new Error(body?.error ?? "AI broken link repair failed");
 			}
 			return res.json() as Promise<{
 				alternative: string | null;
@@ -250,7 +250,7 @@ export function useSummarize() {
 			const res = await client.api.admin.summarize.$post({ json: input });
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "AI 摘要生成失败");
+				throw new Error(body?.error ?? "AI summary generation failed");
 			}
 			return res.json() as Promise<{ summary: string }>;
 		},
@@ -258,7 +258,7 @@ export function useSummarize() {
 	});
 }
 
-// 批量移动书签到指定分类(null = 未分类)
+// Move selected bookmarks to a category (null means uncategorized).
 export function useBatchMoveBookmarks() {
 	const invalidate = useInvalidate();
 	return useMutation({
@@ -268,13 +268,13 @@ export function useBatchMoveBookmarks() {
 			});
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "批量移动失败");
+				throw new Error(body?.error ?? "Could not move bookmarks");
 			}
 			return res.json();
 		},
 		onSuccess: async (r) => {
 			await invalidate();
-			toast.success(`已移动 ${r.count} 个书签`);
+			toast.success(`Moved ${r.count} bookmarks`);
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -287,18 +287,18 @@ export function useBatchDeleteBookmarks() {
 			const res = await client.api.admin.bookmarks["batch-delete"].$post({
 				json: { ids },
 			});
-			if (!res.ok) throw new Error("批量删除失败");
+			if (!res.ok) throw new Error("Could not delete selected items");
 			return res.json();
 		},
 		onSuccess: async (r) => {
 			await invalidate();
-			toast.success(`已删除 ${r.count} 个书签`);
+			toast.success(`Deleted ${r.count} bookmarks`);
 		},
 		onError: (e) => toast.error(e.message),
 	});
 }
 
-// 批量删除分类(子分类级联删除,直属书签变为未分类)
+// Delete categories in bulk; cascade to child categories and uncategorize their bookmarks.
 export function useBatchDeleteCategories() {
 	const invalidate = useInvalidate();
 	return useMutation({
@@ -306,18 +306,18 @@ export function useBatchDeleteCategories() {
 			const res = await client.api.admin.categories["batch-delete"].$post({
 				json: { ids },
 			});
-			if (!res.ok) throw new Error("批量删除失败");
+			if (!res.ok) throw new Error("Could not delete selected items");
 			return res.json();
 		},
 		onSuccess: async (r) => {
 			await invalidate();
-			toast.success(`已删除 ${r.count} 个分类`);
+			toast.success(`Deleted ${r.count} categories`);
 		},
 		onError: (e) => toast.error(e.message),
 	});
 }
 
-// 死链检测:前端分批调用后端(每批 10 个并发),通过 onProgress 回报进度
+// Check links in batches of 10 concurrent requests and report progress through onProgress.
 export function useCheckDeadLinks() {
 	const invalidate = useInvalidate();
 	return useMutation({
@@ -334,7 +334,7 @@ export function useCheckDeadLinks() {
 				const res = await client.api.admin["check-links"].$post({
 					json: { ids: chunk },
 				});
-				if (!res.ok) throw new Error("死链检测请求失败");
+				if (!res.ok) throw new Error("Link check request failed");
 				const { results } = await res.json();
 				dead += results.filter((r) => r.status === "dead").length;
 				onProgress?.(Math.min(i + 10, ids.length), ids.length);
@@ -343,8 +343,8 @@ export function useCheckDeadLinks() {
 		},
 		onSuccess: async ({ total, dead }) => {
 			await invalidate();
-			if (dead > 0) toast.warning(`检测完成:共 ${total} 个书签,发现 ${dead} 个死链`);
-			else toast.success(`检测完成:${total} 个书签全部可访问`);
+			if (dead > 0) toast.warning(`Check complete: ${total} bookmarks, ${dead} broken links`);
+			else toast.success(`Check complete: all ${total} bookmarks are accessible`);
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -355,46 +355,46 @@ export function useImportBookmarks() {
 	return useMutation({
 		mutationFn: async (html: string) => {
 			const res = await client.api.admin.import.$post({ json: { html } });
-			if (!res.ok) throw new Error("导入失败,请确认文件是浏览器导出的书签 HTML");
+			if (!res.ok) throw new Error("Import failed. Check that the file is a browser bookmark HTML export.");
 			return res.json();
 		},
 		onSuccess: async (r) => {
 			await invalidate();
 			toast.success(
-				`导入完成:新增 ${r.bookmarks} 个书签、${r.categories} 个分类` +
-					(r.skipped ? `,跳过重复 ${r.skipped} 个` : ""),
+				`Import complete: added ${r.bookmarks} bookmarks and ${r.categories} categories` +
+					(r.skipped ? `; skipped ${r.skipped} duplicates` : ""),
 			);
 		},
 		onError: (e) => toast.error(e.message),
 	});
 }
 
-// 恢复 JSON 备份(buildBackupPayload 产物):合并式,重复跳过,设置仅补缺
+// Restore a JSON backup by merging records, skipping duplicates, and filling missing settings.
 export function useImportJson() {
 	const invalidate = useInvalidate();
 	return useMutation({
 		mutationFn: async (payload: BackupImportPayload) => {
 			const res = await client.api.admin["import-json"].$post({ json: payload });
-			if (!res.ok) throw new Error("恢复失败,请确认文件是本项目导出的 JSON 备份");
+			if (!res.ok) throw new Error("Restore failed. Check that the file is a JSON backup exported by this application.");
 			return res.json();
 		},
 		onSuccess: async (r) => {
 			await invalidate();
 			toast.success(
-				`恢复完成:书签 ${r.bookmarks} 个(跳过 ${r.skipped})、分类 ${r.categories} 个` +
-					(r.settingsFilled ? `,补齐设置 ${r.settingsFilled} 项` : ""),
+				`Restore complete: ${r.bookmarks} bookmarks (skipped ${r.skipped}), ${r.categories} categories` +
+					(r.settingsFilled ? `; added ${r.settingsFilled} settings` : ""),
 			);
 		},
 		onError: (e) => toast.error(e.message),
 	});
 }
 
-// 下载 JSON 备份文件。同样必须走 fetch + Blob:导航式下载会被 SPA 回退拦截
+// Download a JSON backup using fetch + Blob; navigation downloads are intercepted by the SPA fallback.
 export function useDownloadBackup() {
 	return useMutation({
 		mutationFn: async () => {
 			const res = await client.api.admin.backup.$get();
-			if (!res.ok) throw new Error("下载失败,请重试");
+			if (!res.ok) throw new Error("Download failed. Please try again.");
 			const blob = await res.blob();
 			const filename =
 				res.headers
@@ -411,7 +411,7 @@ export function useDownloadBackup() {
 			URL.revokeObjectURL(url);
 			return filename;
 		},
-		onSuccess: (filename) => toast.success(`已下载 ${filename}`),
+		onSuccess: (filename) => toast.success(`Downloaded ${filename}`),
 		onError: (e) => toast.error(e.message),
 	});
 }
@@ -419,10 +419,10 @@ export function useDownloadBackup() {
 export function useExportBookmarks() {
 	return useMutation({
 		mutationFn: async () => {
-			// 必须走 fetch + Blob:导航式下载(<a href download>)会被 SPA 回退拦截,
-			// 保存下来的是前端 index.html 而不是书签文件
+			// Use fetch + Blob because navigation downloads (<a href download>) are intercepted by the SPA fallback.
+			// Otherwise the downloaded file is the frontend index.html rather than the bookmark export.
 			const res = await client.api.admin.export.$get();
-			if (!res.ok) throw new Error("导出失败,请重试");
+			if (!res.ok) throw new Error("Export failed. Please try again.");
 			const blob = await res.blob();
 			const filename =
 				res.headers
@@ -439,7 +439,7 @@ export function useExportBookmarks() {
 			URL.revokeObjectURL(url);
 			return filename;
 		},
-		onSuccess: (filename) => toast.success(`已导出 ${filename}`),
+		onSuccess: (filename) => toast.success(`Exported ${filename}`),
 		onError: (e) => toast.error(e.message),
 	});
 }
@@ -449,31 +449,31 @@ export function useBackupNow() {
 	return useMutation({
 		mutationFn: async () => {
 			const res = await client.api.admin.backup.$post();
-			if (!res.ok) throw new Error("备份失败");
+			if (!res.ok) throw new Error("Backup failed");
 			return res.json();
 		},
 		onSuccess: async () => {
 			await qc.invalidateQueries({ queryKey: ["admin-settings"] });
-			toast.success("已备份到 R2 存储");
+			toast.success("Backed up to R2 storage");
 		},
 		onError: (e) => toast.error(e.message),
 	});
 }
 
-// 立即全量死链检测(与定时任务同一逻辑,不受计划/开关限制)
+// Run a full link check immediately, independent of the schedule and enable switch.
 export function useRunLinkCheck() {
 	const qc = useQueryClient();
 	return useMutation({
 		mutationFn: async () => {
 			const res = await client.api.admin.maintenance["check-links"].$post();
-			if (!res.ok) throw new Error("检测失败,请重试");
+			if (!res.ok) throw new Error("Check failed. Please try again.");
 			return res.json();
 		},
 		onSuccess: async (r) => {
 			await qc.invalidateQueries({ queryKey: ["admin-bookmarks"] });
 			toast.success(
-				`检测完成:共 ${r.total} 个书签,死链 ${r.dead} 个` +
-					(r.revived ? `,恢复 ${r.revived} 个` : ""),
+				`Check complete: ${r.total} bookmarks; broken: ${r.dead}` +
+					(r.revived ? `; restored: ${r.revived}` : ""),
 			);
 		},
 		onError: (e) => toast.error(e.message),
@@ -485,7 +485,7 @@ export function useAdminSettings() {
 		queryKey: ["admin-settings"],
 		queryFn: async () => {
 			const res = await client.api.admin.settings.$get();
-			if (!res.ok) throw new Error("加载设置失败");
+			if (!res.ok) throw new Error("Could not load settings");
 			return res.json() as Promise<Record<string, string>>;
 		},
 	});
@@ -496,16 +496,16 @@ export function useSaveSettings() {
 	return useMutation({
 		mutationFn: async (data: Record<string, string>) => {
 			const res = await client.api.admin.settings.$put({ json: data });
-			if (!res.ok) throw new Error("保存失败");
+			if (!res.ok) throw new Error("Could not save");
 		},
 		onSuccess: async () => {
 			await Promise.all([
 				qc.invalidateQueries({ queryKey: ["admin-settings"] }),
 				qc.invalidateQueries({ queryKey: ["site-settings"] }),
-				// 让前台(首页)AI 配置立即失效,返回前台无需手动刷新即可看到 AI 开关
+				// Invalidate public AI settings so returning to the home page shows changes without a manual refresh.
 				qc.invalidateQueries({ queryKey: ["ai-config"] }),
 			]);
-			toast.success("已保存");
+			toast.success("Saved");
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -517,10 +517,10 @@ export function useChangePassword() {
 			const res = await client.api.auth["change-password"].$post({ json: data });
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "修改失败");
+				throw new Error(body?.error ?? "Update failed");
 			}
 		},
-		onSuccess: () => toast.success("密码已修改"),
+		onSuccess: () => toast.success("Password updated"),
 		onError: (e) => toast.error(e.message),
 	});
 }
@@ -532,12 +532,12 @@ export function useChangeUsername() {
 			const res = await client.api.auth["change-username"].$post({ json: data });
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "修改失败");
+				throw new Error(body?.error ?? "Update failed");
 			}
 		},
 		onSuccess: async () => {
 			await qc.invalidateQueries({ queryKey: ["auth-status"] });
-			toast.success("用户名已修改");
+			toast.success("Username updated");
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -573,7 +573,7 @@ export function useAIUsage() {
 		queryKey: ["admin-ai-usage"],
 		queryFn: async () => {
 			const res = await client.api.admin["ai-usage"].$get();
-			if (!res.ok) throw new Error("加载 AI 用量失败");
+			if (!res.ok) throw new Error("Could not load AI usage");
 			return res.json();
 		},
 		refetchInterval: 30_000,
@@ -587,7 +587,7 @@ export type AITestConfig = {
 	model: string;
 };
 
-// 浏览器插件访问令牌
+// Browser extension access token
 export type ApiTokenStatus = {
 	exists: boolean;
 	hint: string | null;
@@ -603,7 +603,7 @@ export function useApiToken() {
 		queryKey: ["admin-api-token"],
 		queryFn: async () => {
 			const res = await client.api.admin.token.$get();
-			if (!res.ok) throw new Error("加载令牌状态失败");
+			if (!res.ok) throw new Error("Could not load token status");
 			return res.json();
 		},
 	});
@@ -614,12 +614,12 @@ export function useCreateApiToken() {
 	return useMutation({
 		mutationFn: async () => {
 			const res = await client.api.admin.token.$post();
-			if (!res.ok) throw new Error("生成令牌失败");
+			if (!res.ok) throw new Error("Could not generate token");
 			return res.json();
 		},
 		onSuccess: async (data) => {
 			await qc.invalidateQueries({ queryKey: ["admin-api-token"] });
-			toast.success("令牌已生成,请立即复制保存");
+			toast.success("Token generated. Copy and save it now.");
 			return data;
 		},
 		onError: (e) => toast.error(e.message),
@@ -631,11 +631,11 @@ export function useRevokeApiToken() {
 	return useMutation({
 		mutationFn: async () => {
 			const res = await client.api.admin.token.$delete();
-			if (!res.ok) throw new Error("吊销失败");
+			if (!res.ok) throw new Error("Could not revoke token");
 		},
 		onSuccess: async () => {
 			await qc.invalidateQueries({ queryKey: ["admin-api-token"] });
-			toast.success("令牌已吊销");
+			toast.success("Token revoked");
 		},
 		onError: (e) => toast.error(e.message),
 	});
@@ -650,7 +650,7 @@ export function useTestAI() {
 				| { ok: false; error?: string }
 				| null;
 			if (!res.ok || !body?.ok) {
-				throw new Error(body && "error" in body && body.error ? body.error : "检测失败");
+				throw new Error(body && "error" in body && body.error ? body.error : "Check failed");
 			}
 			return body;
 		},

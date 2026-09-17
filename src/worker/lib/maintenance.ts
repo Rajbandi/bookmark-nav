@@ -10,10 +10,10 @@ import {
 	parseSchedule,
 } from "./schedule";
 
-// 并发上限:Workers Cron 的 CPU 时间有限,外部 fetch 大部分是 I/O 等待,
-// 用固定并发池控制峰值连接数,避免一次性打出全量请求
+// Worker cron CPU time is limited, while external requests mostly wait for I/O.
+// Use a fixed concurrency pool to limit peak connections rather than launching all requests at once.
 const CHECK_CONCURRENCY = 8;
-// D1 单条 SQL 的绑定参数上限保守取 90,分批更新状态
+// Use batches of 90 to stay below the D1 SQL binding limit.
 const BATCH_SIZE = 90;
 
 export type LinkCheckResult = {
@@ -22,7 +22,7 @@ export type LinkCheckResult = {
 	revived: number;
 };
 
-// 全量死链检测:并发检测所有书签,只写状态发生变化的行,并记录最近一次运行结果
+// Check all bookmarks concurrently, update only changed statuses, and record the latest result.
 export async function checkAllLinks(db: Db): Promise<LinkCheckResult> {
 	const rows = await db
 		.select({
@@ -32,9 +32,9 @@ export async function checkAllLinks(db: Db): Promise<LinkCheckResult> {
 		})
 		.from(bookmarks);
 
-	const dead: number[] = []; // 本次新翻转为死链的(只更新这些行,避免写放大)
+	const dead: number[] = []; // Update only newly broken links to avoid redundant writes.
 	const revived: number[] = [];
-	let totalDead = 0; // 运行后的死链总数(含历史死链),供后台展示
+	let totalDead = 0; // Total broken links after the run, including previously broken links, for the admin display.
 	let cursor = 0;
 	async function worker() {
 		while (cursor < rows.length) {
@@ -91,8 +91,8 @@ async function readSettingsMap(db: Db): Promise<Map<string, string>> {
 	return new Map(rows.map((r) => [r.key, r.value]));
 }
 
-// 定时任务入口:由每小时整点的 cron 调用,按后台配置的开关与计划判断各任务是否到点。
-// 缺省视为开启;显式保存过 "0" 才关闭。后台手动触发不经过这里,不受开关/计划限制。
+// Hourly cron entry point: evaluate each task against its configured enable switch and schedule.
+// Treat missing switches as enabled; only an explicit 0 disables them. Manual runs bypass this scheduler.
 export async function runScheduledTasks(
 	env: Env,
 ): Promise<{ checked: boolean; backed: boolean }> {
@@ -111,7 +111,7 @@ export async function runScheduledTasks(
 			await checkAllLinks(db);
 			result.checked = true;
 		} catch (err) {
-			console.error("[maintenance] 死链检测失败:", err);
+			console.error("[maintenance] Link check failed:", err);
 		}
 	}
 	if (
@@ -122,8 +122,8 @@ export async function runScheduledTasks(
 			await backupToR2(env, db);
 			result.backed = true;
 		} catch (err) {
-			// 备份失败不影响检测结果;R2 未配置时这里不会走到
-			console.error("[maintenance] R2 备份失败:", err);
+			// Backup failures do not affect link check results; this path is skipped when R2 is not configured.
+			console.error("[maintenance] R2 backup failed:", err);
 		}
 	}
 	return result;

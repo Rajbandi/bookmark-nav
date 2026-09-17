@@ -22,26 +22,26 @@ const credentialsSchema = z.object({
 	password: z.string().min(6).max(100),
 });
 
-// 登录限流:IP 维度防止通过轮换用户名绕过,IP+用户名维度防止单账号爆破
+// Rate-limit by IP to prevent username rotation, and by IP plus username to protect individual accounts.
 const LOGIN_WINDOW_MS = 15 * 60_000;
 const LOGIN_IP_LIMIT = 30;
 const LOGIN_USER_LIMIT = 10;
 
-// 初始化管理员:未初始化前该接口对所有人开放,需按 IP 限流,
-// 否则公网部署后扫描器可抢注管理员账号或爆破弱密码
+// Administrator setup is public until initialization, so rate-limit it by IP.
+// This limits scanners attempting to claim the account or brute-force weak passwords.
 const SETUP_WINDOW_MS = 60 * 60_000;
 const SETUP_IP_LIMIT = 10;
 
-// tokenVersion 写入 JWT,配合 softAuth 校验实现改密码后旧会话失效
+// Include tokenVersion in JWTs so softAuth invalidates old sessions after password changes.
 async function issueToken(
 	c: Context<AppEnv>,
 	user: { id: number; username: string; tokenVersion?: number },
 ) {
-	// 部署时漏配 JWT_SECRET 是最常见的环境问题,给出明确提示而非模糊的 500
+	// Report a missing JWT_SECRET explicitly instead of returning a generic 500 error.
 	if (!c.env.JWT_SECRET) {
 		throw new HTTPException(500, {
 			message:
-				"服务未配置 JWT_SECRET:请在 Worker → 设置 → 变量和机密中添加机密 JWT_SECRET 后重试",
+				"JWT_SECRET is not configured. Add the JWT_SECRET secret under Worker → Settings → Variables and Secrets, then try again.",
 		});
 	}
 	const token = await sign(
@@ -64,7 +64,7 @@ async function issueToken(
 }
 
 export const authRoutes = new Hono<AppEnv>()
-	// 初始化状态:前端据此决定显示"初始化管理员"还是"登录"
+	// Initialization status determines whether the frontend shows account setup or sign-in.
 	.get("/status", async (c) => {
 		const db = createDb(c.env.DB);
 		const [first] = await db.select({ id: users.id }).from(users).limit(1);
@@ -74,10 +74,10 @@ export const authRoutes = new Hono<AppEnv>()
 			user: c.get("user") ?? null,
 		});
 	})
-	// 首次初始化管理员,仅当没有任何用户时可用
+	// Create the initial administrator only when no users exist.
 	.post("/setup", zValidator("json", credentialsSchema), async (c) => {
 		const db = createDb(c.env.DB);
-		// 未初始化前该接口对所有人开放,先限流再判断,避免被扫描器抢注或爆破
+		// Rate-limit the public setup endpoint before checking initialization to discourage scanners and brute-force attempts.
 		const setupRl = await consumeRateLimit(
 			db,
 			`setup:${clientIp(c)}`,
@@ -86,7 +86,7 @@ export const authRoutes = new Hono<AppEnv>()
 		);
 		if (!setupRl.ok) {
 			await pruneRateLimits(db, SETUP_WINDOW_MS);
-			return c.json({ error: "尝试次数过多,请稍后再试" }, 429);
+			return c.json({ error: "Too many attempts. Please try again later." }, 429);
 		}
 		const [exists] = await db.select({ id: users.id }).from(users).limit(1);
 		if (exists) {
@@ -101,7 +101,7 @@ export const authRoutes = new Hono<AppEnv>()
 				username: users.username,
 				tokenVersion: users.tokenVersion,
 			});
-		// 并发兜底:先检查后插入存在竞态,插完再确认一次,多出来的立即回滚
+		// Handle concurrent setup races by checking after insertion and rolling back extra accounts.
 		const all = await db.select({ id: users.id }).from(users);
 		if (all.length > 1) {
 			await db.delete(users).where(eq(users.id, user.id));
@@ -119,11 +119,11 @@ export const authRoutes = new Hono<AppEnv>()
 		const byIp = await consumeRateLimit(db, ipKey, LOGIN_IP_LIMIT, LOGIN_WINDOW_MS);
 		if (!byIp.ok) {
 			await pruneRateLimits(db, LOGIN_WINDOW_MS);
-			return c.json({ error: "尝试次数过多,请 15 分钟后再试" }, 429);
+			return c.json({ error: "Too many attempts. Please try again in 15 minutes." }, 429);
 		}
 		const byUser = await consumeRateLimit(db, userKey, LOGIN_USER_LIMIT, LOGIN_WINDOW_MS);
 		if (!byUser.ok) {
-			return c.json({ error: "尝试次数过多,请 15 分钟后再试" }, 429);
+			return c.json({ error: "Too many attempts. Please try again in 15 minutes." }, 429);
 		}
 		const [user] = await db
 			.select()
@@ -131,14 +131,14 @@ export const authRoutes = new Hono<AppEnv>()
 			.where(eq(users.username, username))
 			.limit(1);
 		if (!user || !(await verifyPassword(password, user.passwordHash))) {
-			return c.json({ error: "用户名或密码错误" }, 401);
+			return c.json({ error: "Incorrect username or password" }, 401);
 		}
-		// 登录成功清零,避免正常用户的历史失败次数累积
+		// Reset the counter after sign-in so past failures do not accumulate for legitimate users.
 		await Promise.all([clearRateLimit(db, ipKey), clearRateLimit(db, userKey)]);
 		await issueToken(c, user);
 		return c.json({ user: { id: user.id, username: user.username } });
 	})
-	// 修改当前登录用户的密码,需验证原密码
+	// Change the signed-in user's password after verifying the current password.
 	.post(
 		"/change-password",
 		requireAuth,
@@ -159,10 +159,10 @@ export const authRoutes = new Hono<AppEnv>()
 				.where(eq(users.id, me.id))
 				.limit(1);
 			if (!user || !(await verifyPassword(oldPassword, user.passwordHash))) {
-				return c.json({ error: "当前密码错误" }, 400);
+				return c.json({ error: "Incorrect current password" }, 400);
 			}
-			// tokenVersion 自增,使此前签发的所有 token 立即失效;
-			// 同时吊销浏览器插件令牌(PAT 权限等同管理员,改密码必须连带失效)
+			// Increment tokenVersion to invalidate all previously issued tokens immediately.
+			// Also revoke the extension token because it grants administrator access.
 			const [updated] = await db
 				.update(users)
 				.set({
@@ -178,12 +178,12 @@ export const authRoutes = new Hono<AppEnv>()
 					username: users.username,
 					tokenVersion: users.tokenVersion,
 				});
-			// 重新签发当前会话,避免改密码后把自己也踢下线
+			// Reissue the current session so changing a password does not sign out the current user.
 			await issueToken(c, updated);
 			return c.json({ ok: true });
 		},
 	)
-	// 修改当前登录用户的用户名,需验证当前密码
+	// Change the signed-in user's username after verifying the current password.
 	.post(
 		"/change-username",
 		requireAuth,
@@ -204,7 +204,7 @@ export const authRoutes = new Hono<AppEnv>()
 				.where(eq(users.id, me.id))
 				.limit(1);
 			if (!user || !(await verifyPassword(password, user.passwordHash))) {
-				return c.json({ error: "密码错误" }, 400);
+				return c.json({ error: "Incorrect password" }, 400);
 			}
 			if (username !== user.username) {
 				const [taken] = await db
@@ -213,7 +213,7 @@ export const authRoutes = new Hono<AppEnv>()
 					.where(eq(users.username, username))
 					.limit(1);
 				if (taken) {
-					return c.json({ error: "用户名已被使用" }, 400);
+					return c.json({ error: "Username is already in use" }, 400);
 				}
 			}
 			const [updated] = await db
@@ -225,7 +225,7 @@ export const authRoutes = new Hono<AppEnv>()
 					username: users.username,
 					tokenVersion: users.tokenVersion,
 				});
-			// 用户名存在 JWT 里,修改后重新签发 token
+			// Reissue the JWT after changing the username stored in it.
 			await issueToken(c, updated);
 			return c.json({ user: { id: updated.id, username: updated.username } });
 		},

@@ -1,5 +1,5 @@
-// Netscape Bookmark File 格式解析与生成
-// Chrome / Edge / Firefox / Safari 的书签导入导出均使用此格式,文件夹可任意嵌套
+// Parse and generate Netscape Bookmark HTML.
+// Chrome, Edge, Firefox, and Safari use this interchange format; folders may nest to any depth.
 
 export type ParsedBookmark = {
 	title: string;
@@ -37,7 +37,7 @@ function attr(attrs: string, name: string): string | null {
 	return m ? m[1] : null;
 }
 
-// 栈式解析:H3 开新文件夹入栈,</DL> 出栈,A 记为当前文件夹书签
+// Stack parser: H3 pushes a folder, </DL> pops it, and A adds a bookmark to the current folder.
 export function parseNetscapeHtml(html: string): ParsedFolder {
 	const root: ParsedFolder = { name: "", children: [], bookmarks: [] };
 	const stack: ParsedFolder[] = [root];
@@ -47,19 +47,19 @@ export function parseNetscapeHtml(html: string): ParsedFolder {
 	while ((m = re.exec(html)) !== null) {
 		const top = stack[stack.length - 1];
 		if (m[2] !== undefined) {
-			// 文件夹
+			// Folder
 			const folder: ParsedFolder = {
-				name: decodeEntities(m[2].trim()) || "未命名",
+				name: decodeEntities(m[2].trim()) || "Untitled",
 				children: [],
 				bookmarks: [],
 			};
 			top.children.push(folder);
 			stack.push(folder);
 		} else if (m[4] !== undefined) {
-			// 书签
+			// Bookmarks
 			const attrs = m[3] ?? "";
 			const href = attr(attrs, "HREF");
-			if (!href || !/^https?:\/\//i.test(href)) continue; // 跳过 javascript:/place: 等
+			if (!href || !/^https?:\/\//i.test(href)) continue; // Skip javascript:, place:, and other non-HTTP URLs.
 			const addDate = attr(attrs, "ADD_DATE");
 			top.bookmarks.push({
 				title: decodeEntities(m[4].trim()) || href,
@@ -68,7 +68,7 @@ export function parseNetscapeHtml(html: string): ParsedFolder {
 				addDate: addDate ? Number(addDate) || null : null,
 			});
 		} else {
-			// </DL>:根不出栈,容错多余的闭合
+			// Never pop the root folder; tolerate extra closing tags.
 			if (stack.length > 1) stack.pop();
 		}
 	}

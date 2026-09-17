@@ -1,5 +1,5 @@
-# 持续集成:每次 push / PR 自动做插件质量门禁
-# 目的:防止类型错误、构建失败、lint 问题流进发布产物(如历史出现过的 savedId 低级错误)
+# Continuous integration: run extension quality checks on every push and pull request.
+# Catch type errors, build failures, and lint issues before publishing artifacts.
 name: CI
 
 on:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    name: 插件类型检查 + 构建 + lint
+    name: Extension type check, build, and lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -18,18 +18,18 @@ jobs:
           node-version: 22
           cache: npm
 
-      # package.json 已配 allowScripts 白名单(esbuild / better-sqlite3 / workerd),
-      # npm 11 下 npm ci 会据此放行这些包的安装脚本,无需额外干预
-      - name: 安装依赖
+      # package.json allowScripts permits esbuild, better-sqlite3, and workerd install scripts.
+      # npm 11 applies this allowlist during npm ci without additional intervention.
+      - name: Install dependencies
         run: npm ci
 
-      - name: 插件类型检查
+      - name: Type-check extension
         run: npm run typecheck:ext
 
-      - name: 构建插件(Chrome)
+      - name: Build extension (Chrome)
         run: npm run build:ext
 
-      - name: 构建插件(Firefox)
+      - name: Build extension (Firefox)
         run: npm run build:ext:firefox
 
       - name: Lint

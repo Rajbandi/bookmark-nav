@@ -9,9 +9,9 @@ import { adminRoutes } from "./routes/admin";
 import { runScheduledTasks } from "./lib/maintenance";
 
 const app = new Hono<AppEnv>()
-	// CORS:仅为浏览器插件放行(插件 background 的跨域 fetch 不带 cookie,
-	// 认证全靠 Authorization: Bearer 令牌,普通网站拿不到令牌,也就跨不了域)。
-	// 注意 credentials 必须为 false:不与 cookie 认证混用,避免引入 CSRF 面
+	// Allow CORS only for browser extensions; background requests do not carry cookies.
+	// Authentication uses Bearer tokens, which ordinary websites do not possess.
+	// Keep credentials false to avoid mixing cookie authentication and introducing CSRF exposure.
 	.use(
 		"/api/*",
 		cors({
@@ -21,14 +21,14 @@ const app = new Hono<AppEnv>()
 					: null,
 			allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 			allowHeaders: ["Authorization", "Content-Type"],
-			// 显式关闭凭据:插件只用 Bearer 令牌,绝不与 cookie 认证混用,杜绝 CSRF 面
+			// Disable credentials explicitly: the extension uses Bearer tokens, avoiding cookie-based CSRF exposure.
 			credentials: false,
 			maxAge: 86_400,
 		}),
 	)
-	// 全局软认证:解析 cookie 里的 JWT 或 Bearer 令牌,公开接口据此过滤私密内容
+	// Parse JWT cookies or Bearer tokens globally so public routes can filter private content.
 	.use("/api/*", softAuth)
-	// 受登录态影响的响应一律禁止共享缓存,防止私密书签泄露
+	// Disable shared caching for authentication-dependent responses to protect private bookmarks.
 	.use("/api/*", async (c, next) => {
 		await next();
 		c.header("Cache-Control", "private, no-store");
@@ -37,29 +37,29 @@ const app = new Hono<AppEnv>()
 	.route("/api/public", publicRoutes)
 	.route("/api/admin", adminRoutes);
 
-// API 异常统一返回 JSON,前端才能展示具体错误而非笼统的“网络错误”
+// Return JSON for API errors so the frontend can show a specific message rather than a generic network error.
 app.onError((err, c) => {
 	const status = err instanceof HTTPException ? err.status : 500;
 	console.error(`[api] ${c.req.method} ${c.req.path}:`, err);
-	// HTTPException 的 message 是受控的业务提示,可安全下发;
-	// 其他异常(驱动错误、SQL 等)可能携带内部细节,只回通用文案
+	// HTTPException messages are controlled application messages and can be returned safely.
+	// Other exceptions may reveal SQL or internal details, so return a generic message.
 	const message =
 		err instanceof HTTPException ? err.message : "Internal Server Error";
 	return c.json({ error: message }, status);
 });
 
-// 非 API 路径回退到静态资产(SPA 模式下未命中资产会返回 index.html),保证前端路由刷新/直达不 404
+// Fall back to static assets for non-API routes; SPA fallback serves index.html for direct navigation and refresh.
 app.notFound((c) => {
 	if (c.req.path.startsWith("/api/")) return c.json({ error: "Not found" }, 404);
 	return c.env.ASSETS.fetch(c.req.raw);
 });
 
-// 前端 Hono RPC client 使用的类型
+// Type used by the frontend Hono RPC client.
 export type AppType = typeof app;
 
-// Cron 触发器(wrangler.json triggers):每小时整点触发一次调度器,
-// 按后台「自动任务」里配置的开关与计划(频率/北京时间)判断是否执行死链检测与备份。
-// 计划在后台修改立即生效,无需重新部署。
+// The cron trigger in wrangler.json invokes the scheduler at the start of each hour.
+// Run link checks and backups according to the switches and UTC+8 schedules configured in admin.
+// Schedule changes take effect immediately without redeployment.
 export default {
 	fetch: app.fetch,
 	scheduled: (event: ScheduledEvent, env: Env) => {

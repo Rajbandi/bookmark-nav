@@ -14,13 +14,13 @@ import {
 } from "@/lib/admin-queries";
 import { ConfirmDialog, type ConfirmState } from "@/components/confirm-dialog";
 
-// 浏览器插件访问令牌卡片:生成(明文仅显示一次)/ 吊销
+// Browser extension token card: generate a token (shown once) or revoke it.
 function ApiTokenCard() {
 	const { data: status } = useApiToken();
 	const createToken = useCreateApiToken();
 	const revokeToken = useRevokeApiToken();
 	const [confirm, setConfirm] = useState<ConfirmState | null>(null);
-	// 刚生成的明文令牌,只在本次会话展示一次;关闭后不再可查看
+	// Display the newly generated plaintext token only in this session; it cannot be viewed after closing.
 	const [freshToken, setFreshToken] = useState<string | null>(null);
 
 	function handleCreate() {
@@ -31,18 +31,18 @@ function ApiTokenCard() {
 
 	function askRotate() {
 		setConfirm({
-			title: "重新生成令牌?",
-			description: "旧令牌将立即失效,已配置的浏览器插件需要更新为新令牌。",
-			confirmText: "重新生成",
+			title: "Regenerate token?",
+			description: "The old token will stop working immediately. Update configured browser extensions with the new token.",
+			confirmText: "Regenerate",
 			onConfirm: handleCreate,
 		});
 	}
 
 	function askRevoke() {
 		setConfirm({
-			title: "吊销令牌?",
-			description: "所有使用该令牌的浏览器插件将立即失去访问权限。",
-			confirmText: "吊销",
+			title: "Revoke token?",
+			description: "All browser extensions using this token will immediately lose access.",
+			confirmText: "Revoke",
 			onConfirm: () => {
 				setFreshToken(null);
 				revokeToken.mutate();
@@ -54,31 +54,31 @@ function ApiTokenCard() {
 		if (!freshToken) return;
 		navigator.clipboard
 			.writeText(freshToken)
-			.then(() => toast.success("已复制到剪贴板"))
-			.catch(() => toast.error("复制失败,请手动选择复制"));
+			.then(() => toast.success("Copied to clipboard"))
+			.catch(() => toast.error("Could not copy. Select and copy the text manually."));
 	}
 
-	const createdAt = status?.createdAt ? new Date(status.createdAt).toLocaleString() : null;
+	const createdAt = status?.createdAt ? new Date(status.createdAt).toLocaleString("en-US") : null;
 
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>浏览器插件令牌</CardTitle>
+				<CardTitle>Browser extension token</CardTitle>
 				<CardDescription>
-					为浏览器插件生成访问令牌(等同管理员权限,请妥善保管)。生成后只显示一次,仅可在插件中配置使用。
+					Generate an access token for the browser extension. It grants administrator access, so keep it secure. The token is shown only once and is intended for extension configuration.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{freshToken ? (
 					<div className="space-y-2">
-						<Label htmlFor="api-token">令牌(仅此一次,关闭后不可再查看)</Label>
+						<Label htmlFor="api-token">Token (shown once; unavailable after closing)</Label>
 						<div className="flex gap-2">
 							<Input id="api-token" readOnly value={freshToken} className="font-mono text-xs" />
 							<Button type="button" variant="outline" onClick={handleCopy}>
-								复制
+								Copy
 							</Button>
 							<Button type="button" variant="ghost" onClick={() => setFreshToken(null)}>
-								我已保存
+								I have saved it
 							</Button>
 						</div>
 					</div>
@@ -86,16 +86,16 @@ function ApiTokenCard() {
 					<div className="flex items-center justify-between gap-4">
 						<div className="text-sm text-muted-foreground">
 							{status?.exists
-								? `已启用 · 尾号 …${status.hint}${createdAt ? ` · 创建于 ${createdAt}` : ""}`
-								: "未启用"}
+								? `Enabled · ending in …${status.hint}${createdAt ? ` · created  ${createdAt}` : ""}`
+								: "Disabled"}
 						</div>
 						<div className="flex gap-2">
 							<Button type="button" variant="outline" onClick={status?.exists ? askRotate : handleCreate}>
-								{status?.exists ? "重新生成" : "生成令牌"}
+								{status?.exists ? "Regenerate" : "Generate token"}
 							</Button>
 							{status?.exists && (
 								<Button type="button" variant="destructive" onClick={askRevoke}>
-									吊销
+									Revoke
 								</Button>
 							)}
 						</div>
@@ -116,7 +116,7 @@ export default function AdminSecurity() {
 	function handleChangePassword(e: FormEvent) {
 		e.preventDefault();
 		if (newPassword !== confirmPassword) {
-			toast.error("两次输入的新密码不一致");
+			toast.error("The new passwords do not match.");
 			return;
 		}
 		changePassword.mutate(
@@ -133,7 +133,7 @@ export default function AdminSecurity() {
 
 	const { data: auth } = useAuthStatus();
 	const changeUsername = useChangeUsername();
-	// 以服务端用户名为基准,draft 保存未提交的编辑,避免用 effect 回填 state
+	// Use the server username as the baseline and store unsaved edits in the draft, avoiding effect-based state resets.
 	const [usernameDraft, setUsernameDraft] = useState<string | null>(null);
 	const [usernamePassword, setUsernamePassword] = useState("");
 	const username = usernameDraft ?? auth?.user?.username ?? "";
@@ -151,13 +151,13 @@ export default function AdminSecurity() {
 			<ApiTokenCard />
 			<Card>
 				<CardHeader>
-					<CardTitle>修改用户名</CardTitle>
-					<CardDescription>修改当前管理员账号的登录用户名</CardDescription>
+					<CardTitle>Change username</CardTitle>
+					<CardDescription>Change the sign-in username for the current administrator account</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleChangeUsername} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="username">用户名</Label>
+							<Label htmlFor="username">Username</Label>
 							<Input
 								id="username"
 								value={username}
@@ -167,32 +167,32 @@ export default function AdminSecurity() {
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="username-password">当前密码</Label>
+							<Label htmlFor="username-password">Current password</Label>
 							<Input
 								id="username-password"
 								type="password"
 								value={usernamePassword}
 								onChange={(e) => setUsernamePassword(e.target.value)}
 								autoComplete="current-password"
-								placeholder="验证身份后生效"
+								placeholder="Required to verify your identity"
 								required
 							/>
 						</div>
 						<Button type="submit" disabled={changeUsername.isPending}>
-							{changeUsername.isPending ? "修改中…" : "修改用户名"}
+							{changeUsername.isPending ? "Updating…" : "Change username"}
 						</Button>
 					</form>
 				</CardContent>
 			</Card>
 			<Card>
 				<CardHeader>
-					<CardTitle>修改密码</CardTitle>
-					<CardDescription>修改当前管理员账号的登录密码</CardDescription>
+					<CardTitle>Change password</CardTitle>
+					<CardDescription>Change the password for the current administrator account</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleChangePassword} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="old-password">当前密码</Label>
+							<Label htmlFor="old-password">Current password</Label>
 							<Input
 								id="old-password"
 								type="password"
@@ -203,7 +203,7 @@ export default function AdminSecurity() {
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="new-password">新密码</Label>
+							<Label htmlFor="new-password">New password</Label>
 							<Input
 								id="new-password"
 								type="password"
@@ -211,12 +211,12 @@ export default function AdminSecurity() {
 								onChange={(e) => setNewPassword(e.target.value)}
 								autoComplete="new-password"
 								minLength={6}
-								placeholder="至少 6 位"
+								placeholder="At least 6 characters"
 								required
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="confirm-password">确认新密码</Label>
+							<Label htmlFor="confirm-password">Confirm new password</Label>
 							<Input
 								id="confirm-password"
 								type="password"
@@ -228,7 +228,7 @@ export default function AdminSecurity() {
 							/>
 						</div>
 						<Button type="submit" disabled={changePassword.isPending}>
-							{changePassword.isPending ? "修改中…" : "修改密码"}
+							{changePassword.isPending ? "Updating…" : "Change password"}
 						</Button>
 					</form>
 				</CardContent>

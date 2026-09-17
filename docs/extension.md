@@ -1,64 +1,57 @@
-# 浏览器插件
+# Browser extension
 
-## 功能一览
+## Features
 
-- **popup 一键收藏**:点插件图标打开面板,自动预填当前网页标题/网址,可选手动:
-  - 分类(树形下拉,私密分类带 🔒 标记)
-  - 私密/公开开关
-  - 标签(逗号分隔)
-  - 描述
-  - 网址已收藏过时给出黄色重复提醒,可强制“仍然收藏”
-- **右键菜单一键收藏**:网页上右键任意链接 →「收藏到 Bookmark Nav」,链接文字自动作标题,图标角标反馈(绿 ✓ 成功 / 红 ！ 失败)
-- **AI 智能填充**:后台配置了 AI 时,popup 显示「✨ AI 智能填充」按钮,一次调用自动填好标题/描述/标签/分类;未配置 AI 则按钮不出现
+- **Save from the popup:** prefill the current page title and URL, then optionally choose a category, privacy setting, tags, or description. Private categories display a lock. Duplicate URLs show a warning with a Save anyway option.
+- **Save links from the context menu:** right-click a link and choose **Save to Bookmark Nav**. Link text becomes the title. A green check badge indicates success; a red exclamation mark indicates failure.
+- **AI autofill:** when AI is configured, fill the title, description, tags, and category with one request. The button is hidden when AI is unavailable.
 
-## 安装(开发期)
+## Installation during development
 
-1. 构建插件:`npm run build:ext`,产物在 `.output/chrome-mv3`
-2. Chrome 打开 `chrome://extensions` → 右上角开启「开发者模式」→「加载已解压的扩展程序」→ 选择 `.output/chrome-mv3` 目录
-3. 每次重新构建后,到扩展页点 **↻ 刷新** 才会生效(日常开发建议用 `npm run dev:ext`,支持自动重载)
+1. Run `npm run build:ext`. Output is written to `.output/chrome-mv3`.
+2. Open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose that directory.
+3. Reload the extension after rebuilding. For daily development, use `npm run dev:ext` for automatic reload.
 
-## 一次性配置
+## Initial configuration
 
-1. 点插件图标 →「前往配置」(或 popup 右上角「设置」)
-2. 填写:
-   - **站点地址**:如 `http://localhost:5173` 或你的 Worker 域名
-   - **访问令牌**:后台「安全」页生成的 `bnav_` 开头长字符串(明文仅生成时显示一次)
-3. 点「保存并验证」→ 浏览器弹出站点权限授权 → 点**允许** → 显示 ✅ 已保存
+1. Open the popup and choose **Open settings**, or use the settings icon.
+2. Enter the site URL, such as `http://localhost:5173` or your Worker URL.
+3. Enter the access token starting with `bnav_`, generated on the admin Security page. Plaintext is displayed only when generated.
+4. Choose **Save and verify**, allow site access when prompted, and wait for **Saved**.
 
-> ⚠️ 授权弹窗**每个站点出现一次**;令牌永不过期、权限持久保留,日常使用就是纯一键收藏,无需反复验证。
+The browser requests access once per site. Tokens have no scheduled expiration, and site permissions persist. Revoking or regenerating a token, or changing the administrator password, invalidates the old token.
 
-## 日常使用
+## Everyday use
 
-| 场景 | 操作 |
+| Task | Action |
 | --- | --- |
-| 收藏当前页(可编辑) | 点插件图标 → 选分类/私密/标签 → 点「收藏」 |
-| 最快收藏链接 | 右键链接 →「收藏到 Bookmark Nav」 |
-| 查看收藏结果 | 前台 http://localhost:5173/ 或后台 /admin |
+| Save the current page with edits | Open the popup, adjust category/privacy/tags, and choose Save bookmark |
+| Save a link quickly | Right-click it and choose Save to Bookmark Nav |
+| Review saved bookmarks | Open the public page or /admin |
 
-## AI 功能
+## AI features
 
-- 前提:在后台「AI」页配置并启用 AI(内置 Workers AI 或自定义 OpenAI 兼容接口)
-- 开启后 popup 出现「✨ AI 智能填充」;点击后:
-  - 后端抓取页面元数据 → LLM 生成标题/一句话描述/3 个标签,并把“最合适分类名”映射到已有分类 ID
-  - 结果自动填进表单,可再手动微调后收藏
-- 后端接口:`POST /api/admin/metadata-ai`(未启用时返回「AI 自动填充未启用」)
+Configure and enable AI on the admin AI settings page, using built-in Workers AI or an OpenAI-compatible provider. Enable autofill as well.
 
-## 状态速查
+AI autofill fetches page metadata, generates an English title, description, and tags, and maps the suggested category to an existing category ID. Review or edit the filled form before saving.
 
-| 现象 | 含义 | 处理 |
+The endpoint is `POST /api/admin/metadata-ai`. If autofill is disabled, it returns `AI autofill is disabled`.
+
+## Troubleshooting
+
+| Symptom | Meaning | Action |
 | --- | --- | --- |
-| popup 提示“首次使用请先配置” | 未配置或配置不完整 | 点「前往配置」 |
-| 报“令牌已失效” | 令牌被重新生成/改密码被吊销 | 后台「安全」页重新生成,更新到插件 |
-| 右键收藏出现红色 ！ 角标 | 未配置、令牌失效或网络不通 | 检查插件设置页 |
-| 收藏成功但前台看不到 | 存成了私密书签 | 登录后台即可见,属正常 |
+| Setup prompt in the popup | Configuration is missing or incomplete | Open settings |
+| Invalid or revoked token | Token was rotated, revoked, or invalidated by a password change | Generate a token in Security and update extension settings |
+| Red exclamation badge after saving a link | Missing configuration, invalid token, or network failure | Check extension settings |
+| Saved bookmark is absent from the public page | It may be private | Sign in to view it |
 
-## 插件开发
+## Extension development
 
-- **源码**:`src/extension/`(WXT 结构,与 worker / react-app 平级)
-- **构建配置**:根目录 `wxt.config.ts`(Chrome/Firefox 双目标,`@app` 别名指向主前端以复用 shadcn 组件)
-- **关键点**:
-  - WXT 把 `@` 固定映射到插件 srcDir,故主前端组件内部的 `@/lib/utils` 靠 `src/extension/lib/utils.ts` 转发 shim 解决
-  - 令牌存 `chrome.storage.local`(不用 sync,避免同步到浏览器账号云端)
-  - MV3 Service Worker 无常驻内存,状态每次从 storage 读取
-  - 站点域名动态申请(optional host permissions),不在 manifest 写死
-- **常用命令**:见 [commands.md](./commands.md) 的 `*:ext` 系列
+- Source: `src/extension/`, alongside `worker` and `react-app`.
+- Build configuration: `wxt.config.ts`, supporting Chrome and Firefox. `@app` points to the main frontend for shared shadcn components.
+- WXT reserves `@` for its srcDir. Shared component imports of `@/lib/utils` go through the forwarding shim in `src/extension/lib/utils.ts`.
+- Tokens are stored in `chrome.storage.local`, avoiding sync to the browser account cloud.
+- Read persistent state from storage because the MV3 service worker can stop between requests.
+- Site access uses optional host permissions requested at runtime.
+- See the `*:ext` commands in [commands.md](./commands.md).

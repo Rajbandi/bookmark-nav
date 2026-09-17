@@ -1,10 +1,10 @@
-// 部署前把 Workers Builds 的构建变量注入 wrangler.json:
+// Inject Workers Builds environment variables into wrangler.json before deployment.
 //   - D1_DATABASE_ID → d1_databases[0].database_id
 //   - JWT_SECRET     → vars.JWT_SECRET
-// 为什么放构建变量而不是面板 Secret:通过 GitHub 集成(Workers Builds)部署时,
-// 每次 wrangler deploy 都会清空面板 UI 手动设置的 Secret/变量(见 cloudflare/workers-sdk#8871);
-// 而构建变量是独立存储的,不会被清空,构建时注入即可保证每次部署都带上,永不丢失。
-// 未设置对应变量时不做处理(本地开发用 .dev.vars,手动部署用面板 Secret,均不受影响)。
+// Build variables are used because deployments through the GitHub integration (Workers Builds)
+// clear secrets and variables set manually in the dashboard (see cloudflare/workers-sdk#8871).
+// Build variables are stored separately and injected into every deployment.
+// Leave unset variables unchanged; local .dev.vars and manual deployment secrets are unaffected.
 import { readFileSync, writeFileSync } from "node:fs";
 
 const path = new URL("../wrangler.json", import.meta.url);
@@ -15,29 +15,29 @@ const dbId = process.env.D1_DATABASE_ID;
 if (dbId) {
 	config.d1_databases[0].database_id = dbId;
 	changed = true;
-	console.log(`[prepare-deploy-config] 已注入 database_id: ${dbId}`);
+	console.log(`[prepare-deploy-config] Injected database_id: ${dbId}`);
 } else {
-	console.log("[prepare-deploy-config] 未设置 D1_DATABASE_ID,跳过");
+	console.log("[prepare-deploy-config] D1_DATABASE_ID is not set; skipping");
 }
 
 const jwtSecret = process.env.JWT_SECRET;
 if (jwtSecret) {
 	config.vars = { ...config.vars, JWT_SECRET: jwtSecret };
 	changed = true;
-	console.log("[prepare-deploy-config] 已注入 JWT_SECRET (长度 " + jwtSecret.length + ")");
+	console.log("[prepare-deploy-config] Injected JWT_SECRET (length  " + jwtSecret.length + ")");
 } else {
-	console.log("[prepare-deploy-config] 未设置 JWT_SECRET,跳过");
+	console.log("[prepare-deploy-config] JWT_SECRET is not set; skipping");
 }
 
-// R2 备份为可选功能:设置了 R2_BUCKET 构建变量才注入 r2_buckets 绑定,
-// 否则移除该绑定,避免没建存储桶的用户 deploy 直接失败(存储桶需自行创建)
+// R2 backups are optional: inject the r2_buckets binding only when R2_BUCKET is set.
+// Otherwise remove the binding so deployment succeeds without a bucket. Create the bucket separately.
 if (process.env.R2_BUCKET) {
 	config.r2_buckets = [{ binding: "BACKUP", bucket_name: process.env.R2_BUCKET }];
 	changed = true;
-	console.log(`[prepare-deploy-config] 已注入 R2 bucket: ${process.env.R2_BUCKET}`);
+	console.log(`[prepare-deploy-config] Injected R2 bucket: ${process.env.R2_BUCKET}`);
 } else if (Array.isArray(config.r2_buckets)) {
 	delete config.r2_buckets;
-	console.log("[prepare-deploy-config] 未设置 R2_BUCKET,已移除 R2 绑定(自动备份功能停用)");
+	console.log("[prepare-deploy-config] R2_BUCKET is not set; removed R2 binding (automatic backups disabled)");
 }
 
 if (changed) {

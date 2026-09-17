@@ -7,16 +7,16 @@ import {
 	type AnySQLiteColumn,
 } from "drizzle-orm/sqlite-core";
 
-// 管理员用户(单用户模型,建表便于扩展)
+// Administrator accounts (currently single-user, with a table for future expansion).
 export const users = sqliteTable("users", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
 	username: text("username").notNull().unique(),
 	passwordHash: text("password_hash").notNull(),
-	// 改密码时自增,用于让此前签发的 JWT 立即失效
+	// Increment on password changes to invalidate previously issued JWTs immediately.
 	tokenVersion: integer("token_version").notNull().default(0),
-	// 浏览器插件等外部客户端的长期访问令牌(只存 SHA-256,明文仅生成时返回一次;null 表示未启用)
+	// Long-lived external client token: store only SHA-256 and return plaintext once; null means disabled.
 	apiTokenHash: text("api_token_hash"),
-	// 令牌末 4 位,后台展示用于辨认
+	// Last four token characters for identification in admin.
 	apiTokenHint: text("api_token_hint"),
 	apiTokenCreatedAt: integer("api_token_created_at", { mode: "timestamp" }),
 	createdAt: integer("created_at", { mode: "timestamp" })
@@ -24,7 +24,7 @@ export const users = sqliteTable("users", {
 		.default(sql`(unixepoch())`),
 });
 
-// 分类(支持任意层级嵌套,parentId 为 null 表示顶级)
+// Categories support arbitrary nesting; null parentId denotes a top-level category.
 export const categories = sqliteTable("categories", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
 	name: text("name").notNull(),
@@ -33,7 +33,7 @@ export const categories = sqliteTable("categories", {
 		onDelete: "cascade",
 	}),
 	sort: integer("sort").notNull().default(0),
-	// public: 所有人可见; private: 登录后可见
+	// public: visible to everyone; private: visible only when signed in.
 	visibility: text("visibility", { enum: ["public", "private"] })
 		.notNull()
 		.default("public"),
@@ -42,7 +42,7 @@ export const categories = sqliteTable("categories", {
 		.default(sql`(unixepoch())`),
 });
 
-// 书签
+// Bookmarks
 export const bookmarks = sqliteTable("bookmarks", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
 	title: text("title").notNull(),
@@ -55,11 +55,11 @@ export const bookmarks = sqliteTable("bookmarks", {
 	sort: integer("sort").notNull().default(0),
 	clickCount: integer("click_count").notNull().default(0),
 	isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
-	// public: 所有人可见; private: 登录后可见
+	// public: visible to everyone; private: visible only when signed in.
 	visibility: text("visibility", { enum: ["public", "private"] })
 		.notNull()
 		.default("public"),
-	// active: 正常; dead: 死链检测标记失效
+	// active: accessible; dead: marked as broken by a link check.
 	status: text("status", { enum: ["active", "dead"] })
 		.notNull()
 		.default("active"),
@@ -71,13 +71,13 @@ export const bookmarks = sqliteTable("bookmarks", {
 		.default(sql`(unixepoch())`),
 });
 
-// 标签
+// Tags
 export const tags = sqliteTable("tags", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
 	name: text("name").notNull().unique(),
 });
 
-// 书签-标签 多对多
+// Many-to-many bookmark/tag association.
 export const bookmarkTags = sqliteTable(
 	"bookmark_tags",
 	{
@@ -91,13 +91,13 @@ export const bookmarkTags = sqliteTable(
 	(t) => [primaryKey({ columns: [t.bookmarkId, t.tagId] })],
 );
 
-// 站点配置(key-value)
+// Site settings (key-value).
 export const settings = sqliteTable("settings", {
 	key: text("key").primaryKey(),
 	value: text("value").notNull(),
 });
 
-// 固定窗口限流计数(登录防爆破、匿名 AI 接口防刷)
+// Fixed-window counters for login brute-force protection and anonymous AI rate limits.
 export const rateLimits = sqliteTable("rate_limits", {
 	key: text("key").primaryKey(),
 	count: integer("count").notNull().default(0),
@@ -106,7 +106,7 @@ export const rateLimits = sqliteTable("rate_limits", {
 		.default(sql`(unixepoch())`),
 });
 
-// AI 调用用量记录(免费额度防刷 + 自定义 API 防滥用)
+// AI usage records for monitoring free allowance and custom API abuse.
 export const aiUsage = sqliteTable("ai_usage", {
 	id: integer("id").primaryKey({ autoIncrement: true }),
 	feature: text("feature").notNull(),

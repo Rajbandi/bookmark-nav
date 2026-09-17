@@ -1,67 +1,69 @@
-# 命令速查
+# Command reference
 
-> 在仓库根目录 `bookmark-nav/` 下执行。插件的 WXT 构建产物输出到 `.output/`,WXT 缓存到 `.wxt/`。
+Run commands from the repository root. WXT writes extension builds to `.output/` and its cache to `.wxt/`.
 
-## npm scripts(package.json)
-
-| 命令 | 作用 |
+| Command | Purpose |
 | --- | --- |
-| `npm run dev` | 启动本地开发服务(Vite + Workerd),http://localhost:5173,热重载前后端 |
-| `npm run build` | 生产构建:`prepare-deploy-config` 注入构建变量 → tsc → vite build |
-| `npm run check` | 完整校验:tsc + vite build + wrangler deploy --dry-run(部署前必跑) |
-| `npm run lint` | ESLint 检查全部源码 |
-| `npm run preview` | 构建后本地预览生产包 |
-| `npm run deploy` | 应用 D1 迁移(remote)→ wrangler deploy(正式部署) |
-| `npm run db:migrate` | 仅对远程 D1 应用迁移 |
-| `npm run cf-typegen` | 重新生成 `worker-configuration.d.ts`(改了 wrangler.json 绑定后跑) |
-| `npm run dev:ext` | 插件开发模式(WXT 热重载) |
-| `npm run typecheck:ext` | 插件类型检查(tsconfig.ext.json),构建前必跑 |
-| `npm run build:ext` | 构建插件 Chrome 版,输出 `.output/chrome-mv3` |
-| `npm run build:ext:firefox` | 构建插件 Firefox 版,输出 `.output/firefox-mv2` |
-| `npm run zip:ext` | 打包插件 zip(Chrome 版) |
-| `npx wxt zip` | 打 Chrome 安装包(`.output/bookmark-nav-<版本>-chrome.zip`) |
-| `npx wxt -b firefox zip` | 打 Firefox 安装包 + 源码包(`-firefox.zip` / `-sources.zip`) |
-| `npx wxt submit init` | 交互式配置各商店发布凭据,生成 `.env.submit` |
-| `npx wxt submit` | 自动提交新版本到商店审核/发布(需先 zip) |
-| `npx wxt submit --dry-run …` | 只校验凭据与 zip,不真正提交 |
-| `npm version patch --no-git-tag-version` | bump 版本(发版用,随后打同版本 tag 触发 CI) |
+| `npm run dev` | Start Vite and Workerd at http://localhost:5173 with frontend/backend reload |
+| `npm run build` | Inject deployment variables, run TypeScript, and build with Vite |
+| `npm run check` | Run TypeScript, Vite build, and a Wrangler deployment dry run |
+| `npm run lint` | Run ESLint across the source |
+| `npm run preview` | Build and preview production output locally |
+| `npm run deploy` | Apply remote D1 migrations, then deploy the Worker |
+| `npm run db:migrate` | Apply remote D1 migrations only |
+| `npm run cf-typegen` | Regenerate worker-configuration.d.ts after changing Wrangler bindings |
+| `npm run dev:ext` | Start extension development with WXT reload |
+| `npm run typecheck:ext` | Prepare WXT and type-check the extension before building |
+| `npm run build:ext` | Build Chrome output in .output/chrome-mv3 |
+| `npm run build:ext:firefox` | Build Firefox output in .output/firefox-mv2 |
+| `npm run zip:ext` | Package the Chrome extension as ZIP |
+| `npx wxt zip` | Create .output/bookmark-nav-VERSION-chrome.zip |
+| `npx wxt -b firefox zip` | Create Firefox installation and source ZIP archives |
+| `npx wxt submit init` | Configure store credentials interactively in .env.submit |
+| `npx wxt submit` | Submit prepared archives to stores for review or publishing |
+| `npx wxt submit --dry-run …` | Validate credentials and archives without submitting |
+| `npm version patch --no-git-tag-version` | Increment the version before tagging a release |
 
-> 打包与商店上架完整流程见 [publishing.md](./publishing.md);CI/CD 自动构建见 [publishing.md](./publishing.md#六cicd-自动化构建补充渠道)。
+See [publishing.md](./publishing.md) for the packaging and store workflow, including [CI/CD builds](./publishing.md#cicd-builds).
 
-## 本地开发初始化
+## Local setup
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars   # 填入任意 JWT_SECRET
+cp .dev.vars.example .dev.vars   # Set a random JWT_SECRET
 npx wrangler d1 migrations apply DB --local
-npm run dev                      # http://localhost:5173
+npm run dev
 ```
 
-## 数据库(Drizzle / D1)
+On Windows PowerShell, use `npm.cmd` and `npx.cmd` if execution policy blocks the `.ps1` launchers. Copy the environment template with `Copy-Item .dev.vars.example .dev.vars`.
 
-| 命令 | 作用 |
+## Database: Drizzle and D1
+
+| Command | Purpose |
 | --- | --- |
-| `npx drizzle-kit generate --name xxx` | 依据 schema.ts 生成新的迁移 SQL(drizzle/xxxx_xxx.sql) |
-| `npx wrangler d1 migrations apply DB --local` | 应用迁移到本地 D1 |
-| `npx wrangler d1 migrations apply DB --remote` | 应用迁移到远程 D1(等同 `npm run db:migrate`) |
+| `npx drizzle-kit generate --name xxx` | Generate migration SQL from schema.ts |
+| `npx wrangler d1 migrations apply DB --local` | Apply migrations to local D1 |
+| `npx wrangler d1 migrations apply DB --remote` | Apply migrations to remote D1 |
 
-> schema 在 `src/worker/db/schema.ts`,迁移在 `drizzle/`,journal 在 `drizzle/meta/_journal.json`。
+The schema is in `src/worker/db/schema.ts`, migrations in `drizzle/`, and the journal in `drizzle/meta/_journal.json`.
 
-## 其他常用
+## Other useful commands
 
-| 命令 | 作用 |
+| Command | Purpose |
 | --- | --- |
-| `openssl rand -hex 32` | 生成 JWT_SECRET |
-| `npx tsc -b` | 主应用类型检查 |
-| `npx tsc -p tsconfig.ext.json --noEmit` | 等同 `npm run typecheck:ext` |
+| `openssl rand -hex 32` | Generate a session-signing secret |
+| `npx tsc -b` | Type-check the main application |
+| `npx tsc -p tsconfig.ext.json --noEmit` | Type-check the extension after WXT preparation |
 
-## 测试账号(仅本地开发)
+## Local development account
 
-| 项 | 值 |
+The documented development account convention is `admin` / `password`; it is not automatically created by migrations. On a fresh database, create an administrator through the initial setup page.
+
+| Item | Value |
 | --- | --- |
-| 后台地址 | http://localhost:5173/admin |
-| 用户名 | `admin` |
-| 密码 | `password` |
-| 登录接口 | `POST /api/auth/login` |
+| Admin page | http://localhost:5173/admin |
+| Development username | `admin` |
+| Development password | `password` |
+| Sign-in endpoint | `POST /api/auth/login` |
 
-> ⚠️ 仅限本地开发使用;正式部署后请在后台「安全」页修改。浏览器插件访问令牌同样在「安全」页生成/吊销。
+Use these example credentials only locally. Set a unique password for a deployed instance. Generate or revoke the browser extension token on the admin Security page.

@@ -1,7 +1,7 @@
 import { hc } from "hono/client";
 import type { AppType } from "../../worker";
 
-// Hono RPC client:类型由 worker 导出的 AppType 端到端推导
+// Hono RPC client: infer end-to-end types from the worker AppType export.
 export const client = hc<AppType>("/");
 
 export type Visibility = "public" | "private";
@@ -15,7 +15,7 @@ export type Category = {
 	visibility: Visibility;
 };
 
-// 把分类树按深度优先拍平,带层级深度与完整路径,供列表/下拉框缩进展示
+// Flatten categories depth-first, retaining depth and full paths for indented lists and selectors.
 export type FlatCategory = { category: Category; depth: number; path: string };
 
 export function flattenCategoryTree(cats: Category[]): FlatCategory[] {
@@ -53,7 +53,7 @@ export type Bookmark = {
 	tags: string[];
 };
 
-// 书签图标候选:优先自定义 icon,其次按后台配置的图标服务模板按域名生成
+// Icon candidates: custom icon first, then the configured icon service URL for the domain.
 export function bookmarkIconCandidates(
 	b: Pick<Bookmark, "icon" | "url">,
 	iconService?: string,
@@ -65,13 +65,13 @@ export function bookmarkIconCandidates(
 			const { hostname } = new URL(b.url);
 			sources.push(iconService.split("{domain}").join(hostname));
 		} catch {
-			// 非法 URL:跳过服务模板
+			// Skip the icon service for invalid URLs.
 		}
 	}
 	return [...new Set(sources)];
 }
 
-// 书签图标主候选项(保持向后兼容)
+// Primary bookmark icon candidate (kept for backward compatibility).
 export function bookmarkIcon(b: Pick<Bookmark, "icon" | "url">, iconService?: string): string {
 	return bookmarkIconCandidates(b, iconService)[0] ?? "";
 }

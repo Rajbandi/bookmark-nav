@@ -1,7 +1,7 @@
-# 发版:推送 v* 标签(或手动触发)时,构建插件安装包并发布到 GitHub Releases,
-# 供用户直接下载 zip 手动安装(侧载),作为商店上架之外的即时分发渠道。
-# 详细说明见 docs/publishing.md
-name: Release 插件
+# Build extension packages on v* tags or manual runs; publish tagged builds to GitHub Releases.
+# Users can download ZIP files for manual installation alongside store distribution.
+# See docs/publishing.md for details.
+name: Release extension
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   release:
-    name: 构建并发布插件安装包
+    name: Build and release extension packages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -24,44 +24,44 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: 安装依赖
+      - name: Install dependencies
         run: npm ci
 
-      # 版本统一:发布流程约定「手动 bump package.json version → 打同版本 vX.Y.Z 标签」,
-      # 这里硬校验 tag 与 package.json 一致,避免出现 tag 是 0.2.0 但 zip 是 0.1.0 的错乱
-      # 手动触发(workflow_dispatch)时没有 tag 上下文,跳过版本校验,仅做构建验证,不发布
-      - name: 校验 tag 与 package.json 版本一致
+      # Release convention: update package.json, then create a matching vX.Y.Z tag.
+      # Reject mismatched tags so release and package versions cannot diverge.
+      # Manual runs have no tag: skip version validation and build without publishing.
+      - name: Verify tag matches package.json version
         if: github.ref_type == 'tag'
         run: |
           TAG="${GITHUB_REF_NAME#v}"
           VER="$(node -p "require('./package.json').version")"
           if [ "$TAG" != "$VER" ]; then
-            echo "错误:标签版本($TAG)与 package.json 版本($VER)不一致"
+            echo "Error: tag version ($TAG) does not match package.json version ($VER)"
             exit 1
           fi
 
-      - name: 插件类型检查
+      - name: Type-check extension
         run: npm run typecheck:ext
 
-      - name: 构建并打包(Chrome + Firefox + 源码包)
+      - name: Build and package Chrome, Firefox, and source archives
         run: |
           npx wxt zip
           npx wxt -b firefox zip
 
-      # 双保险:确认 Firefox 源码包未夹带敏感文件(.dev.vars/.env)
-      - name: 源码包敏感文件检查
+      # Verify the Firefox source archive contains no sensitive .dev.vars or .env files.
+      - name: Check source archive for sensitive files
         run: |
           if unzip -l .output/*-sources.zip | grep -qE '(\.dev\.vars|\.env)$'; then
-            echo "错误:源码包含敏感文件,已中止发布"
+            echo "Error: source archive contains sensitive files; release aborted"
             exit 1
           fi
 
-      # 手动触发时只能看绿不绿,下载不到包;加上 artifact 让运行详情页可直接下载试用。
-      # tag 发布流程不受影响(照常走下面的 softprops 发布到 Releases)。
-      # 注意:`upload-artifact` 默认忽略隐藏文件/目录(连 glob 都匹配不到,因此
-      # `.output/*.zip` 会报 No files found);我们的 zip 在隐藏目录 `.output/`
-      # 里,必须显式开启 `include-hidden-files`(仍不包含 .git 等版本库文件)
-      - name: 上传构建产物(供手动运行下载)
+      # Upload artifacts so manually triggered builds can be downloaded from the workflow run.
+      # Tagged releases still use softprops below to publish to GitHub Releases.
+      # upload-artifact ignores hidden directories by default, including glob matches.
+      # Our archives live in the hidden .output directory.
+      # Enable include-hidden-files explicitly; repository metadata is still excluded.
+      - name: Upload build artifacts for manual download
         uses: actions/upload-artifact@v4
         with:
           name: bookmark-nav-extension-zips
@@ -70,12 +70,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      # 仅 tag 推送时真正发布;手动触发时只做构建验证,不创建 Release
-      - name: 发布到 GitHub Releases
+      # Publish only on tag pushes; manual runs validate builds without creating a Release.
+      - name: Publish to GitHub Releases
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          name: "Bookmark Nav 插件 ${{ github.ref_name }}"
+          name: "Bookmark Nav Extension ${{ github.ref_name }}"
           generate_release_notes: true
           files: |
             .output/*-chrome.zip

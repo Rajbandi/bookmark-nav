@@ -78,7 +78,7 @@ coverage
 # nyc test coverage
 .nyc_output
 
-# WXT (浏览器插件) 构建产物与缓存
+# WXT browser extension build output and cache
 .output/
 .wxt/
 

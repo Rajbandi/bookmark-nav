@@ -1,105 +1,107 @@
-# 商店上架与打包
+# Packaging and publishing
 
-> 插件基于 WXT 构建,打包与自动发布由 WXT 提供;首次上架各商店需手动走一遍流程(WXT 不代创建 listing)。
+The extension uses WXT for builds, packaging, and automated submission. Create the initial store listings manually; WXT does not create them for you.
 
-## 一、打包(本地)
+## Local packaging
 
 ```bash
-npm run build:ext            # 构建 Chrome 版(校验用,发布前先跑 typecheck:ext)
-npm run typecheck:ext        # 类型检查,必跑
-npx wxt zip                  # 打 Chrome 安装包 → .output/bookmark-nav-<版本>-chrome.zip
-npx wxt -b firefox zip       # 打 Firefox 安装包 + 源码包
+npm run typecheck:ext        # Required before publishing
+npm run build:ext            # Validate the Chrome build
+npx wxt zip                  # Chrome installation archive
+npx wxt -b firefox zip       # Firefox installation and source archives
 ```
 
-产物(`.output/`):
+Output is written to `.output/`:
 
-| 文件 | 用途 |
+| File | Purpose |
 | --- | --- |
-| `bookmark-nav-0.1.0-chrome.zip` | Chrome / Edge / Brave 等 Chromium 系安装包(约 173 kB) |
-| `bookmark-nav-0.1.0-firefox.zip` | Firefox 安装包 |
-| `bookmark-nav-0.1.0-sources.zip` | Firefox **源码包**(AMO 审核必需,约 641 kB) |
+| `bookmark-nav-0.1.0-chrome.zip` | Chrome, Edge, Brave, and other Chromium browsers |
+| `bookmark-nav-0.1.0-firefox.zip` | Firefox installation package |
+| `bookmark-nav-0.1.0-sources.zip` | Source archive for Firefox AMO review |
 
-> 版本号来自 `package.json` 的 `version`;源码包已配置排除 `dist/**` 等非源码内容,且默认不包含 `.dev.vars`/`.env` 等隐藏文件。
+The version comes from `package.json`. Source packaging excludes build output such as `dist/**` and hidden configuration files such as `.dev.vars` and `.env`.
 
-## 二、自动发布(WXT submit)
+## Automated submission with WXT
 
-WXT 内置自动提交工具,用于**后续每次发新版本**:
+For subsequent releases, configure credentials and submit the prepared packages:
 
 ```bash
-npx wxt submit init          # 首次:交互式配置各商店凭据,生成 .env.submit
-npx wxt zip && npx wxt -b firefox zip   # 先打好所有要发的 zip
+npx wxt submit init          # Configure credentials in .env.submit
+npx wxt zip
+npx wxt -b firefox zip
 npx wxt submit --dry-run --chrome-zip .output/*-chrome.zip \
-  --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip   # 试跑
+  --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip
 npx wxt submit --chrome-zip .output/*-chrome.zip \
-  --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip   # 正式提交
+  --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip
 ```
 
-所需凭据(存 `.env.submit`,勿提交 git):
+Keep credentials in `.env.submit` and out of Git.
 
-| 商店 | 变量 |
+| Store | Variables |
 | --- | --- |
-| Chrome Web Store | `CHROME_EXTENSION_ID`、`CHROME_CLIENT_ID`、`CHROME_CLIENT_SECRET`、`CHROME_REFRESH_TOKEN` |
-| Firefox AMO | `FIREFOX_EXTENSION_ID`、`FIREFOX_JWT_ISSUER`、`FIREFOX_JWT_SECRET` |
+| Chrome Web Store | `CHROME_EXTENSION_ID`, `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `CHROME_REFRESH_TOKEN` |
+| Firefox AMO | `FIREFOX_EXTENSION_ID`, `FIREFOX_JWT_ISSUER`, `FIREFOX_JWT_SECRET` |
 
-> Edge 无需单独打包:直接复用 Chrome 的 zip 上架到 [Partner Center](https://aka.ms/PartnerCenterLogin)。
+For Edge, reuse the Chrome archive and submit it through [Partner Center](https://aka.ms/PartnerCenterLogin).
 
-## 三、Chrome Web Store(手动上架,仅首次)
+## First Chrome Web Store listing
 
-1. **注册开发者账号**:[Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole),一次性注册费 **$5**(需 Google 账号 + 付款信息)
-2. **创建项目**:Dashboard → 新增项目 → 上传 `bookmark-nav-0.1.0-chrome.zip`
-3. **填写四个标签页**:
-   - **Store Listing**:名称、简介(简述“一键收藏网页到自托管 Bookmark Nav”)、**至少 1280×800 或 640×400 的截图**、128×128 图标、分类、支持语言
-   - **Privacy**:声明单用途;如实说明收集的数据——**用户主动收藏时发送网页 URL/标题到用户自己的服务器**(不出第三方);单用途填“书签管理”
-   - **Distribution**:可见范围(公开/仅链接)与允许地区
-   - **Test instructions**:非必需(本扩展无需登录凭据即可测,可选填演示 URL)
-4. **Submit for review**:提交后进入审核(简单权限扩展通常较快);审核通过后可**选择立即发布或暂存 30 天内手动发布**
-5. 之后更新版本:上传新 zip → 提交 → 审核 → 发布(可全程用 `wxt submit` 自动化)
+1. Register through the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole). Complete the account and payment requirements shown there.
+2. Create a new item and upload the Chrome ZIP archive.
+3. Complete the listing sections:
+   - **Store Listing:** name, summary, screenshots, 128×128 icon, category, and supported language. Describe one-click saving to a self-hosted Bookmark Nav site.
+   - **Privacy:** declare the bookmark-management purpose and accurately describe data handling. Saving sends page URLs and titles to the configured server; optional AI processing uses the selected provider.
+   - **Distribution:** visibility and supported regions.
+   - **Test instructions:** provide any setup details and demo access needed for review.
+4. Submit for review, then publish using the options available in the dashboard.
+5. For updates, upload a new version, submit for review, and publish. WXT can automate submission.
 
-**本项目材料清单**:✅ 已就绪——zip 可打、权限最小(storage/activeTab/contextMenus + 可选站点权限)、manifest 合规;⏳ 待做——插件图标、商店截图、隐私政策页面。
+The repository includes packaging configuration and a minimal permission set: `storage`, `activeTab`, `contextMenus`, and optional site access. Prepare store screenshots, review the supplied icons, and publish a privacy policy before submission.
 
-## 四、Firefox AMO(手动上架,仅首次)
+## First Firefox AMO listing
 
-1. 注册 [Firefox Add-ons](https://addons.mozilla.org/developers/)(免费,需 Firefox 账号)
-2. 创建扩展 → 上传 `bookmark-nav-0.1.0-firefox.zip`(**必须**同时上传 `sources.zip` 源码包供审核)
-3. AMO 要求源码包能**独立重建**:解压后 `npm install && npm run build:ext:firefox` 产物应一致;请在根 README 或 `SOURCE_CODE_REVIEW.md` 写明该构建命令
-4. 填写 listing(名称/简介/图标/截图/隐私政策)
-5. 审核通过后 AMO 自动签名,你的扩展获得正式签名(侧载的本地版无签名,仅 AMO 发布版带签名)
+1. Register through [Firefox Add-ons](https://addons.mozilla.org/developers/).
+2. Create an extension listing and upload both the Firefox installation archive and the source archive for review.
+3. Ensure the source archive can be rebuilt independently with `npm install` followed by `npm run build:ext:firefox`. Document these commands in the README or `SOURCE_CODE_REVIEW.md` included with the source.
+4. Complete the name, description, icons, screenshots, and privacy policy.
+5. AMO signs approved packages for distribution. Local development builds are unsigned.
 
-> Firefox 兼容已就绪:WXT 自动转 event page + `browser_specific_settings.gecko.id`(见 `wxt.config.ts`)。
+WXT handles the Firefox event-page build. The Gecko extension ID is configured in `wxt.config.ts`.
 
-## 五、上架前的通用检查单
+## Before publishing
 
-- [ ] `npm run typecheck:ext` 与 `npm run build:ext` 通过
-- [ ] zip 内含的 manifest 权限与隐私声明一致(仅 storage/activeTab/contextMenus + 动态站点权限)
-- [ ] 插件图标(128×128 及 popup 用)已放入 `src/extension/public/`
-- [ ] 商店截图与简介已准备
-- [ ] 隐私政策页面已准备(如实说明数据只到用户自己的服务器)
-- [ ] Firefox 源码包可独立重建,README/SOURCE_CODE_REVIEW.md 写了构建命令
-- [ ] 版本号已在 `package.json` 递增(`wxt submit` 每次需要新版本号)
+- [ ] Extension type checks and Chrome/Firefox builds pass.
+- [ ] Manifest permissions match the privacy declaration.
+- [ ] Icons are present in `src/extension/public/`.
+- [ ] Screenshots and listing descriptions are ready.
+- [ ] The privacy policy accurately describes server and optional AI data flows.
+- [ ] The Firefox source archive can be rebuilt independently, with build instructions included.
+- [ ] `package.json` has an incremented version for the new submission.
 
-## 六、CI/CD 自动化构建(补充渠道)
+## CI/CD builds
 
-仓库内置两个 GitHub Actions workflow(`.github/workflows/`),把"质量门禁"与"Releases 侧载分发"自动化:
+Two GitHub Actions workflows in `.github/workflows/` validate changes and package releases:
 
-| Workflow | 触发 | 作用 |
+| Workflow | Trigger | Behavior |
 | --- | --- | --- |
-| `ci.yml` | push / PR | typecheck:ext + Chrome/Firefox 构建 + lint,防错误流入产物 |
-| `release.yml` | 推送 `v*` 标签 / 手动 | 校验 tag 与版本一致 → 构建打包 → 检查源码包无敏感文件 → 发布到 GitHub Releases;手动触发时跳过发布,改为上传 zip 到运行详情页的 Artifacts(保留 7 天)供下载试用 |
+| `ci.yml` | Push or pull request | Extension type checks, Chrome/Firefox builds, and lint |
+| `release.yml` | A `v*` tag or manual run | Validate tag/version agreement, build archives, check the source archive for secrets, and publish tagged builds to GitHub Releases. Manual runs upload downloadable artifacts retained for seven days. |
 
-**发版流程**(约定与 release.yml 的硬校验一致):
+Release procedure, matching the workflow's version validation:
 
 ```bash
-# 1. 手动 bump 版本
-npm version patch --no-git-tag-version     # 或手动改 package.json 的 version
-# 2. 提交 + 打同版本标签
-git add package.json package-lock.json && git commit -m "chore: bump version"
+# Increment the version, or edit package.json manually
+npm version patch --no-git-tag-version
+# Commit and tag the matching version
+git add package.json package-lock.json
+git commit -m "chore: bump version"
 git tag v$(node -p "require('./package.json').version")
-# 3. 推送触发 release workflow
+# Push to trigger the release workflow
 git push origin main --tags
 ```
 
-推送 `v*` 标签后,workflow 自动把 `-chrome.zip` / `-firefox.zip` / `-sources.zip` 三个安装包挂到对应 Release,用户可直接下载后手动安装(侧载),无需 clone 构建。这是商店审核渠道之外的**即时分发补充**。
+Tagged releases attach the Chrome, Firefox, and source ZIP files to GitHub Releases so users can download them without cloning and building the repository. This provides a distribution channel alongside store publishing.
 
-## 七、Safari
+## Safari
 
-暂不支持自动发布;需用 Xcode + `safari-web-extension-packager` 打包成 Safari Web Extension(成本高,本项目不作为目标)。
+Automated Safari publishing is not configured. Packaging would require Xcode and `safari-web-extension-packager`; Safari is not a current project target.

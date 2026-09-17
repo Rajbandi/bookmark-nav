@@ -7,10 +7,10 @@ import { users } from "../db/schema";
 import { hashApiToken, isApiToken } from "../lib/token";
 import { AUTH_COOKIE, type AppEnv, type JwtUser } from "../lib/types";
 
-// 软认证:有合法 token 则注入 user,没有也放行(公开接口按登录态过滤 visibility)
+// Optional authentication: inject user for valid tokens; public routes filter visibility based on authentication.
 export const softAuth = createMiddleware<AppEnv>(async (c, next) => {
-	// 浏览器插件走 Bearer 令牌(跨域 fetch 不携带 SameSite=Lax 的 cookie)。
-	// 令牌有效则直接用;无效(如已被吊销)时继续回落到 cookie 认证,避免误伤
+	// Extensions use Bearer tokens because cross-origin fetch does not send SameSite=Lax cookies.
+	// Use valid tokens directly; invalid or revoked tokens fall back to cookie authentication.
 	const authz = c.req.header("Authorization") ?? "";
 	const bearer = authz.startsWith("Bearer ") ? authz.slice(7).trim() : "";
 	if (isApiToken(bearer)) {
@@ -21,7 +21,7 @@ export const softAuth = createMiddleware<AppEnv>(async (c, next) => {
 			await next();
 			return;
 		}
-		// 令牌无效:不 return,继续走下面的 cookie 分支
+		// Invalid token: continue to cookie authentication below.
 	}
 
 	const token = getCookie(c, AUTH_COOKIE);
@@ -29,7 +29,7 @@ export const softAuth = createMiddleware<AppEnv>(async (c, next) => {
 		try {
 			const payload = await verify(token, c.env.JWT_SECRET, "HS256");
 			if (typeof payload.id === "number" && typeof payload.username === "string") {
-				// 校验 token 版本:改密码后旧 token 立即失效,避免被盗会话继续可用
+				// Check the token version so password changes invalidate old sessions immediately.
 				const db = createDb(c.env.DB);
 				const [user] = await db
 					.select({
@@ -40,20 +40,20 @@ export const softAuth = createMiddleware<AppEnv>(async (c, next) => {
 					.from(users)
 					.where(eq(users.id, payload.id))
 					.limit(1);
-				// 缺少 ver 字段的旧版 token 一律视为失效
+				// Reject older tokens without a ver field.
 				const ver = typeof payload.ver === "number" ? payload.ver : -1;
 				if (user && user.tokenVersion === ver) {
 					c.set("user", { id: user.id, username: user.username } satisfies JwtUser);
 				}
 			}
 		} catch {
-			// token 无效/过期:视为未登录,不报错
+			// Treat invalid or expired tokens as unauthenticated without raising an error.
 		}
 	}
 	await next();
 });
 
-// 强认证:管理接口必须登录
+// Required authentication for admin endpoints.
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 	if (!c.get("user")) {
 		return c.json({ error: "Unauthorized" }, 401);
@@ -61,7 +61,7 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 	await next();
 });
 
-// 按令牌哈希查用户;令牌与账号绑定,无版本校验(改密码时直接吊销)
+// Look up users by token hash; password changes revoke these account-bound tokens directly.
 export async function userFromApiToken(
 	db: Db,
 	raw: string,

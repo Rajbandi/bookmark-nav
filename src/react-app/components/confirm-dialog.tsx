@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
 
-// 待确认的操作:null 表示弹窗关闭
+// Pending confirmation; null means the dialog is closed.
 export interface ConfirmState {
 	title: string;
 	description?: string;
@@ -18,7 +18,7 @@ export interface ConfirmState {
 	onConfirm: () => void;
 }
 
-// 统一风格的危险操作确认弹窗,替代原生 confirm()
+// Consistent confirmation dialog for destructive actions, replacing native confirm().
 export function ConfirmDialog({
 	state,
 	onClose,
@@ -36,7 +36,7 @@ export function ConfirmDialog({
 					)}
 				</AlertDialogHeader>
 				<AlertDialogFooter>
-					<AlertDialogCancel>取消</AlertDialogCancel>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
 					<AlertDialogAction
 						className={buttonVariants({ variant: "destructive" })}
 						onClick={() => {
@@ -44,7 +44,7 @@ export function ConfirmDialog({
 							onClose();
 						}}
 					>
-						{state?.confirmText ?? "删除"}
+						{state?.confirmText ?? "Delete"}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>

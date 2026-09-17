@@ -9,23 +9,23 @@ import { extractJson, loadAISettings, runChat } from "../lib/ai";
 import { clientIp, consumeRateLimit, pruneRateLimits } from "../lib/rate-limit";
 import { mergeDefaultSettings } from "../lib/settings";
 
-// 语义搜索匿名可调用,且每次请求都会触发一次 LLM 推理,必须限流以防 AI 额度被刷爆
+// Anonymous semantic search invokes the LLM on every request, so rate-limit it to protect the AI allowance.
 const SEMANTIC_SEARCH_LIMIT = 30;
 const SEMANTIC_SEARCH_WINDOW_MS = 60 * 60_000;
 
-// LIKE 里 % 与 _ 是通配符,用户输入需先转义才能按字面量匹配
+// Escape user input because % and _ are wildcards in LIKE expressions.
 function escapeLike(s: string): string {
 	return s.replace(/[\\%_]/g, (m) => `\\${m}`);
 }
 
-// 未登录只能看 public;登录后 public + private
+// Anonymous users see public items; authenticated users also see private items.
 function visibleBookmarks(authed: boolean) {
 	return authed ? undefined : eq(bookmarks.visibility, "public");
 }
 
 type CatRow = { id: number; parentId: number | null; visibility: "public" | "private" };
 
-// 未登录时:分类及其所有祖先均为 public 才可见(私密文件夹整棵子树隐藏)
+// Anonymous users can see a category only if all its ancestors are public; hide entire private subtrees.
 function allowedCategoryIds(cats: CatRow[], authed: boolean): Set<number> {
 	if (authed) return new Set(cats.map((c) => c.id));
 	const byId = new Map(cats.map((c) => [c.id, c]));
@@ -45,10 +45,10 @@ function allowedCategoryIds(cats: CatRow[], authed: boolean): Set<number> {
 	return allowed;
 }
 
-// 给书签列表附加标签名
+// Attach tag names to the bookmark list.
 async function attachTags<T extends { id: number }>(db: Db, rows: T[]) {
 	if (rows.length === 0) return rows.map((r) => ({ ...r, tags: [] as string[] }));
-	// 全量取标签关联后内存映射:避免 IN 列表超过 D1 单语句 100 个绑定变量的限制
+	// Load tag associations and map them in memory to avoid exceeding the D1 100-binding limit with IN lists.
 	const links = await db
 		.select({
 			bookmarkId: bookmarkTags.bookmarkId,
@@ -65,9 +65,9 @@ async function attachTags<T extends { id: number }>(db: Db, rows: T[]) {
 	return rows.map((r) => ({ ...r, tags: map.get(r.id) ?? [] }));
 }
 
-// 允许匿名读取的站点配置键。
-// settings 表里还存着 ai.apiKey / ai.apiEndpoint 等敏感配置,必须对下发的键做白名单,
-// 否则任何访客访问 /api/public/site 都能拿到 AI 密钥明文。
+// Site setting keys available to anonymous users.
+// Allowlist response keys because settings also stores sensitive AI credentials and endpoints.
+// Otherwise /api/public/site would expose plaintext API keys to visitors.
 const PUBLIC_SETTING_KEYS = new Set([
 	"siteName",
 	"footer",
@@ -93,15 +93,15 @@ const bookmarkColumns = {
 };
 
 export const publicRoutes = new Hono<AppEnv>()
-	// 站点配置(站名/Logo 等,均视为公开)
+	// Public site settings such as the name and logo.
 	.get("/site", async (c) => {
 		const db = createDb(c.env.DB);
 		const rows = await db.select().from(settings);
 		const safe = rows.filter((r) => PUBLIC_SETTING_KEYS.has(r.key));
-		// 缺失的键补开箱默认值(紧凑模式/图标服务),已保存的值优先
+		// Fill missing settings with defaults, preserving saved values.
 		return c.json(mergeDefaultSettings(safe));
 	})
-	// AI 可用性(公开,供前端决定是否显示语义搜索入口)
+	// Public AI availability controls the semantic search entry point.
 	.get("/ai-config", async (c) => {
 		const db = createDb(c.env.DB);
 		const rows = await db
@@ -112,7 +112,7 @@ export const publicRoutes = new Hono<AppEnv>()
 		const semantic = map.get("ai.features.semanticSearch") === "true";
 		return c.json({ aiEnabled: enabled, semanticSearch: enabled && semantic });
 	})
-	// 导航页数据:分类 + 书签(按登录态过滤,私密分类含子孙整体隐藏)
+	// Navigation data filtered by authentication, hiding entire private category subtrees.
 	.get("/bookmarks", async (c) => {
 		const db = createDb(c.env.DB);
 		const authed = !!c.get("user");
@@ -134,7 +134,7 @@ export const publicRoutes = new Hono<AppEnv>()
 			bookmarks: await attachTags(db, visible),
 		});
 	})
-	// 搜索(标题/描述/网址,按登录态过滤)
+	// Search title, description, and URL with authentication-based filtering.
 	.get(
 		"/search",
 		zValidator("query", z.object({ q: z.string().min(1).max(100) })),
@@ -159,14 +159,14 @@ export const publicRoutes = new Hono<AppEnv>()
 				)
 				.orderBy(desc(bookmarks.clickCount))
 				.limit(50);
-			// 私密分类(含祖先私密)下的书签不可搜,与列表接口一致
+			// Exclude bookmarks in private category subtrees from search, matching list visibility.
 			const visible = rows.filter(
 				(b) => b.categoryId === null || allowed.has(b.categoryId),
 			);
 			return c.json({ bookmarks: await attachTags(db, visible) });
 		},
 	)
-	// AI 语义搜索:自然语言 → 关键词扩展 → 关键词搜索
+	// Semantic search: natural language to expanded keywords to bookmark search.
 	.get(
 		"/search/semantic",
 		zValidator("query", z.object({ q: z.string().min(1).max(100) })),
@@ -174,9 +174,9 @@ export const publicRoutes = new Hono<AppEnv>()
 			const db = createDb(c.env.DB);
 			const aiSettings = await loadAISettings(db);
 			if (!aiSettings.enabled || !aiSettings.features.semanticSearch) {
-				return c.json({ error: "AI 语义搜索未启用" }, 400);
+				return c.json({ error: "AI semantic search is disabled" }, 400);
 			}
-			// 匿名可调用 + 每次触发一次 LLM 推理:先限流,避免 AI 额度被恶意刷爆
+			// Rate-limit before anonymous LLM requests to prevent AI allowance abuse.
 			const rl = await consumeRateLimit(
 				db,
 				`semantic:${clientIp(c)}`,
@@ -185,17 +185,17 @@ export const publicRoutes = new Hono<AppEnv>()
 			);
 			if (!rl.ok) {
 				await pruneRateLimits(db, SEMANTIC_SEARCH_WINDOW_MS);
-				return c.json({ error: "请求过于频繁,请稍后再试" }, 429);
+				return c.json({ error: "Too many requests. Please try again later." }, 429);
 			}
 			const query = c.req.valid("query").q;
 			const authed = !!c.get("user");
-			// 用 LLM 把自然语言转成可搜索的关键词
+			// Convert natural-language queries into searchable keywords with the LLM.
 			const system =
-				"你是一个书签搜索引擎。请把用户的自然语言查询改写成用于搜索的关键词列表(从书签的标题、描述、URL、标签里最可能命中的词)。";
-			const user = `请以 JSON 数组返回 2-6 个关键词,不要包含其他内容:
-["关键词1", "关键词2"]
+				"You are a bookmark search engine. Rewrite the natural-language query as English search keywords likely to match bookmark titles, descriptions, URLs, or tags. Preserve proper names when needed.";
+			const user = `Return only a JSON array of 2-6 keywords:
+["keyword1", "keyword2"]
 
-查询: ${query}`;
+Query: ${query}`;
 			let keywords: string[] = [query];
 			try {
 				const raw = await runChat(
@@ -212,9 +212,9 @@ export const publicRoutes = new Hono<AppEnv>()
 				const list = Array.isArray(parsed) ? parsed : parsed.keywords ?? [];
 				if (list.length) keywords = list.filter(Boolean);
 			} catch {
-				// 转换失败则直接使用原始查询
+				// Fall back to the original query if keyword conversion fails.
 			}
-			// 关键词 OR 匹配,优先同时命中多个词的
+			// Match keywords with OR, prioritizing bookmarks matching multiple keywords.
 			const allCats = await db.select().from(categories);
 			const allowed = allowedCategoryIds(allCats, authed);
 			const rows = await db
@@ -240,7 +240,7 @@ export const publicRoutes = new Hono<AppEnv>()
 			return c.json({ bookmarks: scored });
 		},
 	)
-	// 点击计数上报
+	// Record bookmark clicks.
 	.post(
 		"/bookmarks/:id/click",
 		zValidator("param", z.object({ id: z.coerce.number().int() })),
@@ -248,7 +248,7 @@ export const publicRoutes = new Hono<AppEnv>()
 			const db = createDb(c.env.DB);
 			const id = c.req.valid("param").id;
 			const authed = !!c.get("user");
-			// 只统计访客本就能看到的书签:否则可用响应差异探测私密书签是否存在
+			// Count clicks only for visible bookmarks so response differences cannot expose private bookmarks.
 			const allCats = await db.select().from(categories);
 			const allowed = allowedCategoryIds(allCats, authed);
 			const [row] = await db
@@ -260,7 +260,7 @@ export const publicRoutes = new Hono<AppEnv>()
 				.from(bookmarks)
 				.where(eq(bookmarks.id, id))
 				.limit(1);
-			// 不存在或无权限时同样返回 ok,不泄露私密书签的存在性
+			// Return ok for missing or inaccessible bookmarks to avoid revealing their existence.
 			if (!row) return c.json({ ok: true });
 			if (row.visibility !== "public" && !authed) return c.json({ ok: true });
 			if (row.categoryId !== null && !allowed.has(row.categoryId)) {

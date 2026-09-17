@@ -8,7 +8,7 @@ const srcFile = path.resolve(process.cwd(), 'public/favicon.png');
 const outDir = path.resolve(process.cwd(), 'src/extension/public');
 
 if (!fs.existsSync(srcFile)) {
-  console.error('源文件 public/favicon.png 不存在');
+  console.error('Source file public/favicon.png does not exist');
   process.exit(1);
 }
 
@@ -20,12 +20,12 @@ async function generateIcons() {
   for (const size of sizes) {
     const outPath = path.join(outDir, `icon-${size}.png`);
     await sharp(srcFile).png().resize(size, size).toFile(outPath);
-    console.log(`已生成 icon-${size}.png`);
+    console.log(`Generated icon-${size}.png`);
   }
-  console.log('插件图标已全部重新生成');
+  console.log('All extension icons have been regenerated');
 }
 
 generateIcons().catch((e) => {
-  console.error('图标生成失败:', e.message);
+  console.error('Icon generation failed:', e.message);
   process.exit(1);
 });

@@ -27,24 +27,24 @@ export default function AdminImportExport() {
 	async function handleFile(file: File | undefined) {
 		if (!file) return;
 		if (file.size > 20 * 1024 * 1024) {
-			toast.error("文件过大(超过 20MB)");
+			toast.error("File is too large (over 20 MB).");
 			return;
 		}
 		const text = await file.text();
-		// 按文件类型分流:JSON 备份走恢复接口,其余按浏览器书签 HTML 导入
+		// Route JSON backups to restore; import other files as browser bookmark HTML.
 		if (file.name.endsWith(".json") || text.trimStart().startsWith("{")) {
 			let payload: BackupImportPayload;
 			try {
 				payload = JSON.parse(text) as BackupImportPayload;
 			} catch {
-				toast.error("文件不是有效的 JSON");
+				toast.error("The file is not valid JSON.");
 				return;
 			}
 			importJson.mutate(payload);
 		} else {
 			importBookmarks.mutate(text);
 		}
-		// 清空 input,允许重复选择同一文件
+		// Clear the input so the same file can be selected again.
 		if (fileRef.current) fileRef.current.value = "";
 	}
 
@@ -53,12 +53,10 @@ export default function AdminImportExport() {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Upload className="size-4" /> 导入书签
+						<Upload className="size-4" /> Import bookmarks
 					</CardTitle>
 					<CardDescription>
-						支持 Chrome / Edge / Firefox 导出的书签 HTML,或本项目的 JSON 备份文件
-						(「导出书签」「自动任务」页可得,恢复书签、分类、标签,站点设置仅补齐缺失项)。
-						文件夹层级完整保留,重复网址自动跳过,可放心重复导入。
+						Import bookmark HTML exported by Chrome, Edge, or Firefox, or a JSON backup from this application. JSON restores bookmarks, categories, and tags, and fills in missing site settings. Folder nesting is preserved and duplicate URLs are skipped, so files can be imported again safely.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -75,13 +73,11 @@ export default function AdminImportExport() {
 					>
 						<FileUp className="size-4" />
 						{importBookmarks.isPending || importJson.isPending
-							? "导入中…"
-							: "选择书签 HTML / JSON 备份"}
+							? "Importing…"
+							: "Choose bookmark HTML / JSON backup"}
 					</Button>
 					<p className="mt-3 text-xs text-muted-foreground">
-						浏览器导出入口:Chrome/Edge 书签管理器 → 导出书签;Firefox
-						书签管理 → 导入和备份 → 导出书签到 HTML;Safari 文件 → 导出 → 书签。
-						导入的书签默认为公开,可在书签管理中调整。
+						Export from Chrome/Edge: Bookmark manager → Export bookmarks. Firefox: Manage bookmarks → Import and Backup → Export Bookmarks to HTML. Safari: File → Export → Bookmarks. Imported bookmarks are public by default; you can change this in Bookmarks.
 					</p>
 				</CardContent>
 			</Card>
@@ -89,11 +85,10 @@ export default function AdminImportExport() {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<FileText className="size-4" /> 导出书签
+						<FileText className="size-4" /> Export bookmarks
 					</CardTitle>
 					<CardDescription>
-						两种格式按需选择:HTML 可导入回任意浏览器;JSON
-						是全量备份(含标签、私密标记、死链状态、站点设置),回到本页即可导入恢复。
+						Choose HTML to import into a browser, or JSON for a full backup including tags, privacy flags, broken link status, and site settings. Restore a JSON backup by importing it on this page.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="flex flex-wrap gap-2">
@@ -103,7 +98,7 @@ export default function AdminImportExport() {
 						disabled={exportBookmarks.isPending}
 					>
 						<FileText className="size-4" />
-						{exportBookmarks.isPending ? "导出中…" : "书签 HTML(浏览器兼容)"}
+						{exportBookmarks.isPending ? "Exporting…" : "Bookmark HTML (browser-compatible)"}
 					</Button>
 					<Button
 						variant="outline"
@@ -111,7 +106,7 @@ export default function AdminImportExport() {
 						disabled={downloadBackup.isPending}
 					>
 						<FileJson className="size-4" />
-						{downloadBackup.isPending ? "生成中…" : "完整备份(JSON)"}
+						{downloadBackup.isPending ? "Generating…" : "Full backup (JSON)"}
 					</Button>
 				</CardContent>
 			</Card>

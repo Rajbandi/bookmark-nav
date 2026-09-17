@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { client } from "@/lib/api";
 import { useAuthStatus } from "@/lib/queries";
 
-// 登录页:未初始化时自动变成"创建管理员"页
+// Show administrator setup instead of sign-in when the site has not been initialized.
 export default function Login() {
 	const navigate = useNavigate();
 	const qc = useQueryClient();
@@ -30,14 +30,14 @@ export default function Login() {
 				: await client.api.auth.login.$post(body);
 			if (!res.ok) {
 				const data = (await res.json()) as { error?: string };
-				toast.error(data.error ?? (isSetup ? "初始化失败" : "登录失败"));
+				toast.error(data.error ?? (isSetup ? "Setup failed" : "Sign-in failed"));
 				return;
 			}
 			await qc.invalidateQueries();
-			toast.success(isSetup ? "管理员创建成功" : "登录成功");
+			toast.success(isSetup ? "Administrator account created" : "Signed in");
 			navigate("/");
 		} catch {
-			toast.error("网络错误,请重试");
+			toast.error("Network error. Please try again.");
 		} finally {
 			setSubmitting(false);
 		}
@@ -47,17 +47,17 @@ export default function Login() {
 		<div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
 			<Card className="w-full max-w-sm">
 				<CardHeader>
-					<CardTitle>{isSetup ? "初始化管理员" : "登录"}</CardTitle>
+					<CardTitle>{isSetup ? "Create administrator" : "Sign in"}</CardTitle>
 					<CardDescription>
 						{isSetup
-							? "首次使用,请创建管理员账号"
-							: "登录后可查看私密书签并进入后台"}
+							? "Create an administrator account to get started."
+							: "Sign in to view private bookmarks and manage your site."}
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleSubmit} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="username">用户名</Label>
+							<Label htmlFor="username">Username</Label>
 							<Input
 								id="username"
 								value={username}
@@ -67,7 +67,7 @@ export default function Login() {
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="password">密码</Label>
+							<Label htmlFor="password">Password</Label>
 							<Input
 								id="password"
 								type="password"
@@ -79,7 +79,7 @@ export default function Login() {
 							/>
 						</div>
 						<Button type="submit" className="w-full" disabled={submitting || isLoading}>
-							{submitting ? "提交中…" : isSetup ? "创建并登录" : "登录"}
+							{submitting ? "Submitting…" : isSetup ? "Create account and sign in" : "Sign in"}
 						</Button>
 					</form>
 				</CardContent>

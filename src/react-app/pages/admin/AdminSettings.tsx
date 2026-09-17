@@ -6,9 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminSettings, useSaveSettings } from "@/lib/admin-queries";
 
-// 图标服务预设(含 {domain} 占位符)
-// DuckDuckGo / FaviconExtractor 对未知域名返回 404,加载失败会走首字母占位;
-// favicon.im 未知域名也返回占位图,但国内可直连
+// Icon service presets with a {domain} placeholder.
+// DuckDuckGo and FaviconExtractor return 404 for unknown domains, triggering the initial fallback.
+// favicon.im returns a placeholder for unknown domains and is directly accessible in China.
 const iconServicePresets = [
 	{ label: "DuckDuckGo", value: "https://icons.duckduckgo.com/ip3/{domain}.ico" },
 	{ label: "favicon.im", value: "https://favicon.im/{domain}" },
@@ -18,7 +18,7 @@ const iconServicePresets = [
 export default function AdminSettings() {
 	const { data, isLoading } = useAdminSettings();
 	const save = useSaveSettings();
-	// 以已保存配置为基准,draft 只记录用户改动过的字段,避免用 effect 回填 state
+	// Use saved settings as the baseline and keep only edited fields in the draft, avoiding effect-based state resets.
 	const [draft, setDraft] = useState<Record<string, string>>({});
 	const siteName = draft.siteName ?? data?.siteName ?? "";
 	const footer = draft.footer ?? data?.footer ?? "";
@@ -40,23 +40,23 @@ export default function AdminSettings() {
 		<div className="mx-auto max-w-2xl space-y-6">
 			<Card>
 				<CardHeader>
-					<CardTitle>基础信息</CardTitle>
-					<CardDescription>前台展示页使用的站点配置</CardDescription>
+					<CardTitle>Basic information</CardTitle>
+					<CardDescription>Site settings for the public page</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleSubmit} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="site-name">站点名称</Label>
+							<Label htmlFor="site-name">Site name</Label>
 							<Input
 								id="site-name"
 								value={siteName}
 								onChange={(e) => setField("siteName", e.target.value)}
-								placeholder="书签导航"
+								placeholder="Bookmark Nav"
 								disabled={isLoading}
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="site-footer">页脚文字</Label>
+							<Label htmlFor="site-footer">Footer text</Label>
 							<Textarea
 								id="site-footer"
 								value={footer}
@@ -65,30 +65,30 @@ export default function AdminSettings() {
 								disabled={isLoading}
 							/>
 							<p className="text-xs text-muted-foreground">
-								支持 Markdown：链接{" "}
-								<code className="rounded bg-muted px-1">[文字](网址)</code>、
-								<code className="rounded bg-muted px-1">**加粗**</code>、
-								<code className="rounded bg-muted px-1">*斜体*</code>
-								，直接写网址会显示为文字；换行即换行
+								Supports Markdown: links{" "}
+								<code className="rounded bg-muted px-1">[text](URL)</code>,{" "}
+								<code className="rounded bg-muted px-1">**bold**</code>,{" "}
+								<code className="rounded bg-muted px-1">*italic*</code>
+								. Plain URLs appear as text; line breaks are preserved.
 							</p>
 						</div>
 						<Button type="submit" disabled={save.isPending || isLoading}>
-							{save.isPending ? "保存中…" : "保存"}
+							{save.isPending ? "Saving…" : "Save"}
 						</Button>
 					</form>
 				</CardContent>
 			</Card>
 			<Card>
 				<CardHeader>
-					<CardTitle>图标获取</CardTitle>
+					<CardTitle>Icons</CardTitle>
 					<CardDescription>
-						配置 favicon 服务地址模板，用 {`{domain}`} 占位书签域名；留空则不自动获取图标
+						Set a favicon service URL template using {`{domain}`} for the bookmark domain. Leave blank to disable automatic icons.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleIconSubmit} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="icon-service">服务地址模板</Label>
+							<Label htmlFor="icon-service">Service URL template</Label>
 							<Input
 								id="icon-service"
 								value={iconService}
@@ -111,7 +111,7 @@ export default function AdminSettings() {
 							))}
 						</div>
 						<Button type="submit" disabled={save.isPending || isLoading}>
-							{save.isPending ? "保存中…" : "保存"}
+							{save.isPending ? "Saving…" : "Save"}
 						</Button>
 					</form>
 				</CardContent>

@@ -10,14 +10,14 @@ async function generateIcons() {
       .png()
       .resize(size, size)
       .toFile(outPath)
-      .then(() => console.log('已生成 icon-' + size + '.png'));
+      .then(() => console.log('Generated icon-' + size + '.png'));
   });
 
   await Promise.all(tasks);
-  console.log('所有图标生成完成');
+  console.log('All icons generated');
 }
 
 generateIcons().catch((e) => {
-  console.error('生成失败:', e.message);
+  console.error('Generation failed:', e.message);
   process.exit(1);
 });

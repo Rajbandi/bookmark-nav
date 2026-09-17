@@ -1,17 +1,17 @@
-// 后台脚本:右键菜单一键收藏 + 角标反馈。
-// 无常驻状态:令牌与站点配置每次从 storage 读取(SW 会被随时回收)
+// Background script: bookmark links from the context menu and report results through the badge.
+// Read the token and site configuration from storage each time; the service worker can stop at any time.
 export default defineBackground(() => {
 	chrome.runtime.onInstalled.addListener(() => {
 		chrome.contextMenus.create({
 			id: "save-link",
-			title: "收藏到 Bookmark Nav",
+			title: "Save to Bookmark Nav",
 			contexts: ["link"],
 		});
 	});
 
 	chrome.contextMenus.onClicked.addListener(async (info) => {
 		if (info.menuItemId !== "save-link" || !info.linkUrl) return;
-		// linkText 在部分 @types/chrome 版本中缺失,这里做类型拓宽
+		// Some @types/chrome versions omit linkText, so extend the type here.
 		const linkText = (info as chrome.contextMenus.OnClickData & { linkText?: string }).linkText;
 		await saveLink(info.linkUrl, linkText ?? info.linkUrl);
 	});
@@ -26,7 +26,7 @@ export default defineBackground(() => {
 			await createBookmark({ title: title.slice(0, 200), url });
 			setBadge("✓", "#16a34a");
 		} catch (err) {
-			console.error("[Bookmark Nav] 收藏失败:", err);
+			console.error("[Bookmark Nav] Failed to save bookmark:", err);
 			fail();
 		}
 	}

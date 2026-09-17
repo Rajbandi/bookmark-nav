@@ -82,7 +82,7 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.623 0.214 259.815);
-    /* 书签图标容器底色:暗色下同样保持浅色,避免黑色 logo 在深色背景上不可见 */
+    /* Keep icon tiles light in dark mode so dark logos remain visible. */
     --icon-tile: oklch(0.97 0 0);
 }
 
@@ -118,7 +118,7 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.546 0.245 262.881);
-    /* 与浅色一致保持浅底:黑色 logo 站点(GitHub 等)在暗色下仍可辨识 */
+    /* A light icon background keeps dark logos such as GitHub recognizable. */
     --icon-tile: oklch(0.96 0 0);
 }
 
@@ -134,10 +134,10 @@
     }
 }
 
-/* ---------- 液态玻璃风格(后台「界面风格」= 液态玻璃时挂到前台根节点) ---------- */
-/* 只覆盖表面类变量:卡片/弹层/边框半透明化;品牌色、图标浅底等沿用全局值 */
+/* Liquid glass style, applied to the public page through the admin Visual style setting. */
+/* Override surface variables for translucent cards, popovers, and borders; retain global brand and icon colors. */
 .glass {
-	/* 圆角整体放大:所有 rounded-* 工具类都是 --radius 的倍数,一处调整全局变圆 */
+	/* Increase the shared radius so rounded utilities scale consistently. */
 	--radius: 1.25rem;
 	--card: oklch(1 0 0 / 55%);
 	--popover: oklch(1 0 0 / 88%);
@@ -146,7 +146,7 @@
 	--accent: oklch(1 0 0 / 50%);
 	--border: oklch(1 0 0 / 55%);
 	--input: oklch(1 0 0 / 50%);
-	/* 固定在视口的渐变色斑:滚动时卡片"透出"的色彩缓慢变化,是玻璃感的主要来源 */
+	/* Fixed gradient spots show through scrolling cards to create the glass effect. */
 	background-image:
 		radial-gradient(52rem 40rem at 12% -10%, oklch(0.85 0.1 255 / 0.5), transparent 65%),
 		radial-gradient(44rem 36rem at 92% 8%, oklch(0.88 0.09 310 / 0.45), transparent 65%),
@@ -168,7 +168,7 @@
 		radial-gradient(56rem 44rem at 40% 110%, oklch(0.42 0.08 195 / 0.3), transparent 62%);
 }
 
-/* header 悬浮胶囊:全圆角药丸形,浮在页面上方,与内容区同宽对齐 */
+/* Floating pill header, aligned with the content width. */
 .glass header {
 	top: 0.75rem;
 	width: min(72rem, 100% - 2rem);
@@ -187,12 +187,12 @@
 	box-shadow: 0 8px 32px oklch(0 0 0 / 0.4);
 }
 
-/* 页脚在玻璃模式下不加分隔线,靠留白自然过渡 */
+/* Use whitespace instead of a divider above the glass-style footer. */
 .glass footer {
 	border: none;
 }
 
-/* backdrop-filter 只给搜索框这一处,卡片零 blur,保证长页面滚动性能 */
+/* Apply backdrop-filter only to search, keeping cards blur-free for smooth scrolling. */
 .glass header input {
 	background-color: oklch(1 0 0 / 55%);
 	-webkit-backdrop-filter: blur(12px);

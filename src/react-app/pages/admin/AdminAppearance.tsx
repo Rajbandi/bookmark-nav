@@ -13,24 +13,24 @@ export default function AdminAppearance() {
 	const compact = settings?.["appearance.compact"] === "1";
 	const anchorNav = settings?.["appearance.anchorNav"] === "1";
 	const showGithubLink = settings?.["showGithubLink"] === "1";
-	// 界面风格存数据库(区别于明暗主题的浏览器本地偏好),全站统一生效
+	// Store the visual style in the database for all visitors; light/dark preferences remain browser-local.
 	const style = settings?.["appearance.style"] === "glass" ? "glass" : "classic";
 	const themeOptions = [
-		{ value: "system", label: "跟随系统", icon: Monitor },
-		{ value: "light", label: "浅色", icon: Sun },
-		{ value: "dark", label: "深色", icon: Moon },
+		{ value: "system", label: "System", icon: Monitor },
+		{ value: "light", label: "Light", icon: Sun },
+		{ value: "dark", label: "Dark", icon: Moon },
 	] as const;
 	const styleOptions = [
-		{ value: "classic", label: "经典", icon: Square },
-		{ value: "glass", label: "液态玻璃", icon: Droplets },
+		{ value: "classic", label: "Classic", icon: Square },
+		{ value: "glass", label: "Liquid glass", icon: Droplets },
 	] as const;
 
 	return (
 		<div className="mx-auto max-w-2xl space-y-6">
 			<Card>
 				<CardHeader>
-					<CardTitle>外观设置</CardTitle>
-					<CardDescription>设置后台及前台的明暗主题，默认跟随系统</CardDescription>
+					<CardTitle>Appearance</CardTitle>
+					<CardDescription>Choose a light or dark theme for the site and admin. Defaults to your system preference.</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<div className="flex flex-wrap gap-2">
@@ -55,8 +55,8 @@ export default function AdminAppearance() {
 			</Card>
 			<Card>
 				<CardHeader>
-					<CardTitle>界面风格</CardTitle>
-					<CardDescription>前台导航页的整体视觉风格，保存后刷新前台生效</CardDescription>
+					<CardTitle>Visual style</CardTitle>
+					<CardDescription>The visual style of the public page. Refresh the public page after saving.</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<div className="flex flex-wrap gap-2">
@@ -82,51 +82,51 @@ export default function AdminAppearance() {
 			</Card>
 			<Card>
 				<CardHeader>
-					<CardTitle>前台显示</CardTitle>
-					<CardDescription>前台导航页的展示密度</CardDescription>
+					<CardTitle>Public page display</CardTitle>
+					<CardDescription>Choose how densely bookmarks appear on the public page</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<div className="space-y-4">
 						<div className="flex items-center justify-between gap-4">
 							<div className="space-y-0.5">
-								<p className="text-sm font-medium">紧凑模式</p>
+								<p className="text-sm font-medium">Compact mode</p>
 								<p className="text-sm text-muted-foreground">
-									卡片更小、隐藏描述与标签，单页显示更多书签
+									Smaller cards hide descriptions and tags to show more bookmarks per page
 								</p>
 							</div>
 							<Switch
 								checked={compact}
 								onCheckedChange={(v) => save.mutate({ "appearance.compact": v ? "1" : "0" })}
 								disabled={save.isPending}
-								aria-label="紧凑模式"
+								aria-label="Compact mode"
 							/>
 						</div>
 						<div className="flex items-center justify-between gap-4 border-t pt-4">
 							<div className="space-y-0.5">
-								<p className="text-sm font-medium">分类导航</p>
+								<p className="text-sm font-medium">Category navigation</p>
 								<p className="text-sm text-muted-foreground">
-									搜索框下方显示分类快捷锚点，点击可跳转；分类少于 3 个时自动隐藏
+									Show category shortcuts below search. Hidden automatically when fewer than three categories are visible.
 								</p>
 							</div>
 							<Switch
 								checked={anchorNav}
 								onCheckedChange={(v) => save.mutate({ "appearance.anchorNav": v ? "1" : "0" })}
 								disabled={save.isPending}
-								aria-label="分类导航"
+								aria-label="Category navigation"
 							/>
 						</div>
 						<div className="flex items-center justify-between gap-4 border-t pt-4">
 							<div className="space-y-0.5">
-								<p className="text-sm font-medium">GitHub 链接</p>
+								<p className="text-sm font-medium">GitHub link</p>
 								<p className="text-sm text-muted-foreground">
-									在页面右上角显示项目仓库入口
+									Show the project repository link in the top-right corner
 								</p>
 							</div>
 							<Switch
 								checked={showGithubLink}
 								onCheckedChange={(v) => save.mutate({ "showGithubLink": v ? "1" : "0" })}
 								disabled={save.isPending}
-								aria-label="GitHub 链接"
+								aria-label="GitHub link"
 							/>
 						</div>
 					</div>

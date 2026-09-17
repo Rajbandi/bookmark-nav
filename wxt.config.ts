@@ -2,35 +2,35 @@ import { defineConfig } from "wxt";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
-// 浏览器插件构建配置:源码在 src/extension,与 worker/react-app 平级
+// Extension build configuration: src/extension is alongside worker and react-app.
 export default defineConfig({
 	srcDir: "src/extension",
-	// WXT 默认把仓库根目录的 public/ 当插件静态资源拷进包里(带入了 _headers 等),
-	// 指到插件自己的空目录,避免混入网站专属文件
+	// WXT defaults to copying the repository public directory, which contains website-only assets.
+	// Use the extension public directory to keep those assets out of the extension package.
 	publicDir: "src/extension/public",
 	modules: ["@wxt-dev/module-react"],
-	// 别名:仅 @app 指向主前端 src/react-app(供插件复用 shadcn/ui 组件)。
-	// 注意 WXT 会把 "@" 固定映射到插件 srcDir(无法覆盖),因此 shadcn 组件内部
-	// 的 `import ... from "@/lib/utils"` 会落到 src/extension/lib/utils.ts 这个转发 shim 上
+	// Only @app aliases the main frontend so the extension can reuse shadcn/ui components.
+	// WXT fixes @ to the extension srcDir, so shared component imports cannot override it.
+	// Imports of @/lib/utils therefore resolve to the forwarding shim at src/extension/lib/utils.ts.
 	alias: {
 		"@app": path.resolve(process.cwd(), "src/react-app"),
 	},
 	manifest: ({ browser }) => ({
-		name: "Bookmark Nav 收藏助手",
+		name: "Bookmark Nav Assistant",
 		version: "0.1.0",
-		description: "一键收藏网页到你的 Bookmark Nav 导航站",
-		// 最小权限集:不申请 <all_urls>,站点权限由用户在 options 配置时动态授予
+		description: "Save web pages to your Bookmark Nav site with one click",
+		// Minimal permissions: request site access dynamically in settings instead of requesting <all_urls>.
 		permissions: ["storage", "activeTab", "contextMenus"],
 		optional_host_permissions: ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
 		action: {},
-		// Firefox 发布必须的扩展 ID,Chrome 会忽略
+		// Extension ID required for Firefox publishing; ignored by Chrome.
 		...(browser === "firefox"
 			? { browser_specific_settings: { gecko: { id: "bookmark-nav-ext@deer.dev" } } }
 			: {}),
 	}),
-	// 发布打包配置
+	// Release packaging configuration.
 	zip: {
-		// Firefox 源码包只装重建所需源码,排除主站构建产物(重建仅依赖 src/)
+		// Include only source needed to rebuild the Firefox extension, excluding main-site build output.
 		excludeSources: ["dist/**"],
 	},
 	vite: () => ({

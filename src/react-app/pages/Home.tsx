@@ -48,13 +48,13 @@ function sectionId(category: Category | null) {
 
 const subscribeNoop = () => () => {};
 
-// 项目仓库地址(后台「GitHub 链接」开关控制是否展示)
+// Project repository URL; visibility is controlled by the admin GitHub link setting.
 const GITHUB_REPO_URL = "https://github.com/deerwan/bookmark-nav";
 
-// 页脚 Markdown 渲染:按需加载,不配置页脚的部署零开销
+// Lazy-load footer Markdown only when footer content is configured.
 const FooterContent = lazy(() => import("@/components/footer-content"));
 
-// GitHub 品牌图标:lucide 已移除品牌图标,内联官方 octicon 路径
+// Inline the official GitHub octicon because lucide no longer includes brand icons.
 function GithubIcon({ className }: { className?: string }) {
 	return (
 		<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className={className}>
@@ -63,7 +63,7 @@ function GithubIcon({ className }: { className?: string }) {
 	);
 }
 
-// 主题切换:水合完成前不渲染图标,避免首帧主题不一致导致的闪烁
+// Wait for hydration before rendering the theme icon to prevent an initial theme mismatch.
 function ThemeToggle() {
 	const { resolvedTheme, setTheme } = useTheme();
 	const mounted = useSyncExternalStore(
@@ -75,7 +75,7 @@ function ThemeToggle() {
 		<Button
 			variant="ghost"
 			size="icon"
-			aria-label="切换主题"
+			aria-label="Toggle theme"
 			onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
 		>
 			{mounted && resolvedTheme === "dark" ? (
@@ -104,7 +104,7 @@ function BookmarkCard({
 			rel="noreferrer"
 			title={bookmark.title}
 			onClick={() => {
-				// 点击计数上报,不阻塞跳转
+				// Report the click without blocking navigation.
 				void client.api.public.bookmarks[":id"].click.$post({
 					param: { id: String(bookmark.id) },
 				});
@@ -179,21 +179,21 @@ export default function Home() {
 	const [searchFocused, setSearchFocused] = useState(false);
 	const searchRef = useRef<HTMLInputElement>(null);
 
-	const siteName = site?.siteName || "书签导航";
-	// 紧凑模式:由后台「外观设置」持久化到数据库,对所有访客全局生效
+	const siteName = site?.siteName || "Bookmark Nav";
+	// Compact mode is stored in the database and applies to all visitors.
 	const compact = site?.["appearance.compact"] === "1";
-	// 分类锚点导航:后台默认关闭,开启后分类少于 3 个也会自动隐藏(一屏可览时没有跳转价值)
+	// Category navigation is off by default and hidden when fewer than three categories are visible.
 	const anchorNav = site?.["appearance.anchorNav"] === "1";
-	// 前台右上角的项目仓库入口:后台可开关
+	// The admin setting controls the repository link in the top-right corner.
 	const showGithubLink = site?.["showGithubLink"] === "1";
-	// 界面风格:classic 传统卡片 / glass 液态玻璃(index.css 中 .glass 变量预设)
+	// Visual style: classic cards or liquid glass (the .glass variables in index.css).
 	const glassStyle = site?.["appearance.style"] === "glass";
-	// 紧凑卡片用自适应列数,分类条目少时行尾不留大片空白
+	// Use adaptive columns for compact cards to avoid excess space in small categories.
 	const compactGrid = "grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-2";
 	const normalGrid = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 	const isMac = /Mac|iP(hone|ad|od)/.test(navigator.platform ?? "");
 
-	// AI 语义搜索(请求后端 /api/public/search/semantic)
+	// AI semantic search through /api/public/search/semantic.
 	async function runAISearch(q: string) {
 		if (!q.trim() || !aiConfig?.semanticSearch) return;
 		setAiLoading(true);
@@ -212,12 +212,12 @@ export default function Home() {
 		}
 	}
 
-	// 关闭 AI 或清空关键词时回到本地过滤
+	// Return to local filtering when AI is disabled or the query is cleared.
 	useEffect(() => {
 		if (!aiSearch || !keyword.trim()) setAiResults(null);
 	}, [aiSearch, keyword]);
 
-	// 全局快捷键:⌘K / Ctrl K / `/` 聚焦搜索框
+	// Global keyboard shortcuts: Cmd+K, Ctrl+K, or / focus the search field.
 	useEffect(() => {
 		const onKeyDown = (e: KeyboardEvent) => {
 			const target = e.target as HTMLElement | null;
@@ -236,10 +236,10 @@ export default function Home() {
 	}, []);
 
 	const aiActive = aiSearch && aiResults !== null;
-	// 输入保持即时响应,过滤计算延迟一帧,书签量大时打字不卡
+	// Defer filtering by a frame to keep typing responsive with large bookmark collections.
 	const deferredKeyword = useDeferredValue(keyword);
 
-	// 实际展示结果:AI 搜索优先,否则按关键词本地过滤(标题/描述/网址/标签)
+	// Show AI results when available; otherwise filter locally by title, description, URL, and tags.
 	const displayBookmarks = useMemo(() => {
 		if (aiResults !== null) return aiResults;
 		const all = data?.bookmarks ?? [];
@@ -253,7 +253,7 @@ export default function Home() {
 		);
 	}, [aiResults, deferredKeyword, data]);
 
-	// 分类树按深度优先拍平成小节,子分类标题显示父级路径前缀(超过两级省略为 … / 上级)
+	// Flatten categories depth-first; abbreviate long ancestor paths to an ellipsis and the parent name.
 	const grouped = useMemo(() => {
 		const flat = flattenCategoryTree(data?.categories ?? []);
 		const groups: {
@@ -283,7 +283,7 @@ export default function Home() {
 		return groups.filter((g) => g.items.length > 0);
 	}, [data, displayBookmarks]);
 
-	// 滚动时高亮当前所在分组的锚点按钮(依赖分组 id 列表,内容数量变化不重复订阅)
+	// Highlight category navigation while scrolling; subscribe only when the section IDs change.
 	const groupedKey = grouped.map((g) => sectionId(g.category)).join("|");
 	useEffect(() => {
 		const sections = groupedKey
@@ -298,7 +298,7 @@ export default function Home() {
 					if (entry.isIntersecting) setActiveSection(entry.target.id);
 				}
 			},
-			// 视口顶部 10%~30% 的横带作为判定区,谁落进来就高亮谁
+			// Use the band between 10% and 30% of the viewport height to identify the active section.
 			{ rootMargin: "-10% 0px -70% 0px" },
 		);
 		sections.forEach((s) => observer.observe(s));
@@ -306,7 +306,7 @@ export default function Home() {
 	}, [groupedKey]);
 
 	function scrollToSection(category: Category | null) {
-		// 点击即高亮,不等滚动结束(短页面滚不到位时也能立即反馈)
+		// Highlight immediately on click, including on short pages that cannot scroll to the target position.
 		setActiveSection(sectionId(category));
 		document
 			.getElementById(sectionId(category))
@@ -322,7 +322,7 @@ export default function Home() {
 		<div className={`min-h-screen bg-background${glassStyle ? " glass" : ""}`}>
 			<header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
 				<div className="mx-auto flex h-14 max-w-6xl items-center gap-x-3 px-4">
-					{/* 命令栏式布局:站名 | 居中搜索 | 图标组,搜索随 sticky header 始终可达;小屏隐藏站名给搜索让位 */}
+					{/* Sticky command bar: site name, centered search, and icons. Hide the name on small screens to make room. */}
 					<Link
 						to="/"
 						className="hidden min-w-0 flex-1 truncate text-lg font-bold sm:block"
@@ -334,7 +334,7 @@ export default function Home() {
 						<Input
 							ref={searchRef}
 							value={keyword}
-							aria-label="搜索书签"
+							aria-label="Search bookmarks"
 							onChange={(e) => {
 								const v = e.target.value;
 								setKeyword(v);
@@ -347,7 +347,7 @@ export default function Home() {
 									void runAISearch(keyword);
 								if (e.key === "Escape") e.currentTarget.blur();
 							}}
-							placeholder={aiSearch ? "用自然语言搜索,如「CSS 工具」…" : "搜索书签…"}
+							placeholder={aiSearch ? "Search naturally, e.g. CSS tools…" : "Search bookmarks…"}
 							className="h-9 rounded-full pr-12 pl-9"
 						/>
 						{aiConfig?.semanticSearch ? (
@@ -357,9 +357,9 @@ export default function Home() {
 								<button
 									type="button"
 									onClick={() => setAiSearch((v) => !v)}
-									aria-label="AI 语义搜索"
+									aria-label="AI semantic search"
 									aria-pressed={aiSearch}
-									title="AI 语义搜索"
+									title="AI semantic search"
 									className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full transition-colors hover:bg-muted"
 								>
 									<Sparkles
@@ -380,7 +380,7 @@ export default function Home() {
 					</div>
 					<div className="flex flex-1 items-center justify-end gap-1">
 						{showGithubLink && (
-							<Button variant="ghost" size="icon" asChild aria-label="GitHub 仓库">
+							<Button variant="ghost" size="icon" asChild aria-label="GitHub repository">
 								<a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
 									<GithubIcon className="size-4.5" />
 								</a>
@@ -390,24 +390,24 @@ export default function Home() {
 						{auth?.authenticated ? (
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
-									<Button variant="ghost" size="icon" aria-label="账户菜单">
+									<Button variant="ghost" size="icon" aria-label="Account menu">
 										<User className="size-4.5" />
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="end">
 									<DropdownMenuItem asChild>
 										<Link to="/admin">
-											<Settings className="size-4" /> 后台管理
+											<Settings className="size-4" /> Admin
 										</Link>
 									</DropdownMenuItem>
 									<DropdownMenuItem onClick={() => logout.mutate()}>
-										<LogOut className="size-4" /> 退出登录
+										<LogOut className="size-4" /> Sign out
 									</DropdownMenuItem>
 								</DropdownMenuContent>
 							</DropdownMenu>
 						) : (
 							<Button variant="ghost" size="sm" asChild>
-								<Link to="/login">登录</Link>
+								<Link to="/login">Sign in</Link>
 							</Button>
 						)}
 					</div>
@@ -415,10 +415,10 @@ export default function Home() {
 			</header>
 
 			<main className="mx-auto max-w-6xl px-4 py-8" aria-busy={isLoading || undefined}>
-				{/* 分类锚点导航:后台开关控制,分类少于 3 个时自动隐藏 */}
+				{/* Admin-controlled category navigation, hidden when fewer than three categories are visible. */}
 				{anchorNav && grouped.length >= 3 && (
 					<nav
-						aria-label="分类导航"
+						aria-label="Category navigation"
 						className="mx-auto mb-8 flex max-w-2xl flex-wrap items-center justify-center gap-2"
 					>
 						{grouped.map(({ category, items }) => {
@@ -435,7 +435,7 @@ export default function Home() {
 									}`}
 								>
 									{category?.icon && <span>{category.icon}</span>}
-									{category?.name ?? "未分类"}
+									{category?.name ?? "Uncategorized"}
 									<span className="text-xs opacity-70">{items.length}</span>
 								</button>
 							);
@@ -464,7 +464,7 @@ export default function Home() {
 					</div>
 				)}
 				{isError && (
-					<p className="py-20 text-center text-destructive">加载失败,请刷新重试</p>
+					<p className="py-20 text-center text-destructive">Could not load. Refresh and try again.</p>
 				)}
 				{grouped.map(({ category, parentPath, items }) => (
 					<section
@@ -485,7 +485,7 @@ export default function Home() {
 									{parentPath} /
 								</span>
 							)}
-							{category?.name ?? "未分类"}
+							{category?.name ?? "Uncategorized"}
 							{category?.visibility === "private" && (
 								<Lock className="size-3.5 text-muted-foreground" />
 							)}
@@ -514,17 +514,17 @@ export default function Home() {
 						)}
 						<p>
 							{aiActive
-								? "AI 没有找到相关书签,换个说法试试?"
+								? "AI found no relevant bookmarks. Try rephrasing your search."
 								: keyword
-									? "没有匹配的书签"
-									: "还没有书签,登录后台添加吧"}
+									? "No matching bookmarks"
+									: "No bookmarks yet. Sign in to admin to add some."}
 						</p>
 					</div>
 				)}
 			</main>
 			{site?.footer && (
 				<footer className="border-t py-6 text-center text-sm text-muted-foreground">
-					{/* chunk 就绪前先按纯文本兜底,避免内容跳动 */}
+					{/* Show plain text while the Markdown chunk loads to avoid content jumps. */}
 					<Suspense fallback={site.footer}>
 						<FooterContent text={site.footer} />
 					</Suspense>

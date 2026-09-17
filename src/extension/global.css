@@ -1,2 +1,2 @@
-/* 插件所有页面共用样式:直接复用主前端的主题变量与 shadcn 设计语言 */
+/* Shared extension styles reuse the frontend theme variables and shadcn design. */
 @import "../react-app/index.css";

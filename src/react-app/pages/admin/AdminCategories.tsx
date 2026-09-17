@@ -58,9 +58,9 @@ function CategoryDialog({
 	const save = useSaveCategory();
 	const [form, setForm] = useState<CategoryPayload>({ name: "" });
 
-	// 父级候选:排除自己及子孙(防循环),并限制挂过去后不超过三级(与后端校验一致)
+	// Exclude the category and its descendants as parents, and enforce three levels including the moved subtree.
 	const parentOptions = (() => {
-		// 被编辑分类的子树高度(新建时为 1)
+		// Height of the edited category subtree (1 for a new category).
 		let subtreeHeight = 1;
 		const excluded = new Set<number>();
 		if (category) {
@@ -79,8 +79,8 @@ function CategoryDialog({
 		);
 	})();
 
-	// 弹窗打开时同步表单初始值(open 由父组件控制,不能依赖 onOpenChange 回调)。
-	// 用渲染期派生代替 effect:effect 会额外触发一次渲染,且被 lint 规则禁止。
+	// Initialize the form when the parent opens the dialog; onOpenChange is not called for this.
+	// Derive state during render to avoid an extra render and the lint restriction on effect-based updates.
 	const [resetToken, setResetToken] = useState({ open, category });
 	if (resetToken.open !== open || resetToken.category !== category) {
 		setResetToken({ open, category });
@@ -104,7 +104,7 @@ function CategoryDialog({
 			await save.mutateAsync({ id: category?.id, data: form });
 			onOpenChange(false);
 		} catch {
-			// 失败时保持弹窗打开,错误提示由 mutation 的 onError 负责
+			// Keep the dialog open on failure; the mutation onError displays the error.
 		}
 	}
 
@@ -112,11 +112,11 @@ function CategoryDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-sm">
 				<DialogHeader>
-					<DialogTitle>{category ? "编辑分类" : "新建分类"}</DialogTitle>
+					<DialogTitle>{category ? "Edit category" : "Add category"}</DialogTitle>
 				</DialogHeader>
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div className="space-y-2">
-						<Label htmlFor="cat-name">名称</Label>
+						<Label htmlFor="cat-name">Name</Label>
 						<Input
 							id="cat-name"
 							value={form.name}
@@ -125,7 +125,7 @@ function CategoryDialog({
 						/>
 					</div>
 					<div className="space-y-2">
-						<Label>父级分类</Label>
+						<Label>Parent category</Label>
 						<Select
 							value={form.parentId != null ? String(form.parentId) : "none"}
 							onValueChange={(v) =>
@@ -136,7 +136,7 @@ function CategoryDialog({
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="none">顶级分类</SelectItem>
+								<SelectItem value="none">Top-level category</SelectItem>
 								{parentOptions.map(({ category: c, path }) => (
 									<SelectItem key={c.id} value={String(c.id)}>
 										{path}
@@ -146,7 +146,7 @@ function CategoryDialog({
 						</Select>
 					</div>
 					<div className="space-y-2">
-						<Label htmlFor="cat-icon">图标(emoji 或留空)</Label>
+						<Label htmlFor="cat-icon">Icon (emoji or blank)</Label>
 						<Input
 							id="cat-icon"
 							value={form.icon ?? ""}
@@ -161,14 +161,14 @@ function CategoryDialog({
 								setForm({ ...form, visibility: v ? "private" : "public" })
 							}
 						/>
-						私密分类(整组仅登录可见)
+						Private category (visible only when signed in)
 					</label>
 					<div className="flex justify-end gap-2">
 						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-							取消
+							Cancel
 						</Button>
 						<Button type="submit" disabled={save.isPending}>
-							{save.isPending ? "保存中…" : "保存"}
+							{save.isPending ? "Saving…" : "Save"}
 						</Button>
 					</div>
 				</form>
@@ -209,7 +209,7 @@ function SortableCategoryRow({
 			<Checkbox
 				checked={selected}
 				onCheckedChange={onToggleSelect}
-				aria-label="选择"
+				aria-label="Select"
 			/>
 			<span className="cursor-grab" {...attributes} {...listeners}>
 				<GripVertical className="size-4 text-muted-foreground" />
@@ -220,7 +220,7 @@ function SortableCategoryRow({
 				<Lock className="size-3.5 text-muted-foreground" />
 			)}
 			<div className="ml-auto flex gap-1">
-				<Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label="编辑">
+				<Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label="Edit">
 					<Pencil className="size-4" />
 				</Button>
 				<Button
@@ -228,7 +228,7 @@ function SortableCategoryRow({
 					size="icon-sm"
 					className="text-destructive"
 					onClick={onDelete}
-					aria-label="删除"
+					aria-label="Delete"
 				>
 					<Trash2 className="size-4" />
 				</Button>
@@ -251,7 +251,7 @@ export default function AdminCategories() {
 		() => (data?.categories ?? []) as Category[],
 		[data],
 	);
-	// 按树层级拍平展示(子分类缩进),拖拽排序作用于同层相对顺序
+	// Flatten the tree with indentation; dragging changes the relative order within a level.
 	const flat = useMemo(() => flattenCategoryTree(categories), [categories]);
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -283,8 +283,8 @@ export default function AdminCategories() {
 
 	function handleBatchDelete() {
 		setConfirmState({
-			title: `确定删除选中的 ${selected.size} 个分类?`,
-			description: "其子分类会一并删除,直属书签变为未分类",
+			title: `Delete the selected ${selected.size} categories?`,
+			description: "Child categories will also be deleted. Their bookmarks will become uncategorized.",
 			onConfirm: () =>
 				batchDel.mutate([...selected], { onSuccess: () => setSelected(new Set()) }),
 		});
@@ -292,7 +292,7 @@ export default function AdminCategories() {
 
 	return (
 		<div className="mx-auto max-w-2xl">
-			{/* 操作工具栏 */}
+			{/* Action toolbar. */}
 			<div className="mb-4 flex items-center justify-end">
 				<Button
 					onClick={() => {
@@ -300,14 +300,14 @@ export default function AdminCategories() {
 						setDialogOpen(true);
 					}}
 				>
-					<Plus className="size-4" /> 新建分类
+					<Plus className="size-4" /> Add category
 				</Button>
 			</div>
 
-			{/* 批量操作栏 */}
+			{/* Bulk actions. */}
 			{selected.size > 0 && (
 				<div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border bg-muted/50 px-4 py-2">
-					<span className="text-sm font-medium">已选 {selected.size} 项</span>
+					<span className="text-sm font-medium">{selected.size} selected</span>
 					<Button
 						variant="destructive"
 						size="sm"
@@ -315,16 +315,16 @@ export default function AdminCategories() {
 						disabled={batchDel.isPending}
 					>
 						<Trash2 className="size-4" />
-						{batchDel.isPending ? "删除中…" : "删除"}
+						{batchDel.isPending ? "Deleting…" : "Delete"}
 					</Button>
 					<Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-						取消选择
+						Clear selection
 					</Button>
 				</div>
 			)}
 
 			<div className="overflow-hidden rounded-xl border">
-				{/* 全选栏 */}
+				{/* Select all. */}
 				{flat.length > 0 && (
 					<label className="flex items-center gap-3 border-b bg-muted/50 px-4 py-2 text-sm text-muted-foreground">
 						<Checkbox
@@ -332,9 +332,9 @@ export default function AdminCategories() {
 								allSelected ? true : selected.size > 0 ? "indeterminate" : false
 							}
 							onCheckedChange={toggleSelectAll}
-							aria-label="全选"
+							aria-label="Select all"
 						/>
-						全选
+						Select all
 					</label>
 				)}
 				<DndContext
@@ -359,8 +359,8 @@ export default function AdminCategories() {
 								}}
 								onDelete={() => {
 									setConfirmState({
-										title: `确定删除分类「${c.name}」?`,
-										description: "其子分类会一并删除,直属书签变为未分类",
+										title: `Delete category “${c.name}”?`,
+										description: "Child categories will also be deleted. Their bookmarks will become uncategorized.",
 										onConfirm: () => del.mutate(c.id),
 									});
 								}}
@@ -369,10 +369,10 @@ export default function AdminCategories() {
 					</SortableContext>
 				</DndContext>
 				{isLoading && (
-					<p className="py-10 text-center text-muted-foreground">加载中…</p>
+					<p className="py-10 text-center text-muted-foreground">Loading…</p>
 				)}
 				{!isLoading && categories.length === 0 && (
-					<p className="py-10 text-center text-muted-foreground">暂无分类</p>
+					<p className="py-10 text-center text-muted-foreground">No categories yet</p>
 				)}
 			</div>
 

@@ -1,5 +1,5 @@
-// 插件本地配置(chrome.storage.local):站点地址 + 访问令牌
-// 不用 storage.sync:令牌等同管理员凭证,同步到浏览器账号云端有泄露风险
+// Local extension settings (chrome.storage.local): site URL and access token.
+// Avoid storage.sync: the token grants administrator access and must not sync to the browser account cloud.
 export type ExtConfig = {
 	siteUrl: string;
 	token: string;
@@ -18,14 +18,14 @@ export async function saveConfig(cfg: ExtConfig): Promise<void> {
 	await chrome.storage.local.set({ [KEY]: cfg });
 }
 
-// 规范化站点地址:去尾部斜杠,校验协议,供请求拼接与权限申请使用
+// Normalize the site URL by removing trailing slashes and validating the protocol for requests and permissions.
 export function normalizeSiteUrl(input: string): string | null {
 	const url = new URL(input.trim());
 	if (url.protocol !== "https:" && url.protocol !== "http:") return null;
 	return url.origin;
 }
 
-// 申请站点访问权限(可选权限):MV3 下插件页面跨域 fetch 依赖 host_permissions
+// Request optional site access: cross-origin fetch from MV3 extension pages requires host_permissions.
 export async function ensureHostPermission(siteUrl: string): Promise<boolean> {
 	const pattern = `${siteUrl}/*`;
 	const granted = await chrome.permissions.contains({ origins: [pattern] });

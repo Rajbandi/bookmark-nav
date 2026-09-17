@@ -27,18 +27,18 @@ import { cn } from "@/lib/utils";
 import { useAuthStatus, useLogout } from "@/lib/queries";
 
 const navItems = [
-	{ to: "/admin", end: true, icon: Bookmark, label: "书签管理" },
-	{ to: "/admin/categories", end: false, icon: FolderTree, label: "分类管理" },
-	{ to: "/admin/import-export", end: false, icon: Share2, label: "导入导出" },
-	{ to: "/admin/maintenance", end: false, icon: CalendarClock, label: "自动任务" },
-	{ to: "/admin/settings", end: false, icon: Settings, label: "站点设置" },
-	{ to: "/admin/appearance", end: false, icon: Palette, label: "外观设置" },
-	{ to: "/admin/security", end: false, icon: Shield, label: "安全设置" },
-	{ to: "/admin/ai", end: false, icon: Sparkles, label: "AI 设置" },
+	{ to: "/admin", end: true, icon: Bookmark, label: "Bookmarks" },
+	{ to: "/admin/categories", end: false, icon: FolderTree, label: "Categories" },
+	{ to: "/admin/import-export", end: false, icon: Share2, label: "Import / Export" },
+	{ to: "/admin/maintenance", end: false, icon: CalendarClock, label: "Scheduled tasks" },
+	{ to: "/admin/settings", end: false, icon: Settings, label: "Site settings" },
+	{ to: "/admin/appearance", end: false, icon: Palette, label: "Appearance" },
+	{ to: "/admin/security", end: false, icon: Shield, label: "Security" },
+	{ to: "/admin/ai", end: false, icon: Sparkles, label: "AI settings" },
 ];
 
-// 侧栏/抽屉共用的导航内容
-// collapsed: 仅桌面折叠态使用,隐藏文字只留图标(移动端抽屉始终传 false)
+// Shared navigation content for the sidebar and mobile drawer.
+// collapsed hides labels on desktop; the mobile drawer always passes false.
 function NavContent({
 	onNavigate,
 	collapsed = false,
@@ -80,9 +80,9 @@ function NavContent({
 					className={cn("justify-start", collapsed && "justify-center px-0")}
 					asChild
 				>
-					<Link to="/" onClick={onNavigate} title={collapsed ? "返回前台" : undefined}>
+					<Link to="/" onClick={onNavigate} title={collapsed ? "Back to site" : undefined}>
 						<Home className="size-4 shrink-0" />
-						{!collapsed && "返回前台"}
+						{!collapsed && "Back to site"}
 					</Link>
 				</Button>
 				<Button
@@ -92,14 +92,14 @@ function NavContent({
 						"justify-start text-muted-foreground",
 						collapsed && "justify-center px-0",
 					)}
-					title={collapsed ? "退出登录" : undefined}
+					title={collapsed ? "Sign out" : undefined}
 					onClick={async () => {
 						await logout.mutateAsync();
 						navigate("/");
 					}}
 				>
 					<LogOut className="size-4 shrink-0" />
-					{!collapsed && "退出登录"}
+					{!collapsed && "Sign out"}
 				</Button>
 			</div>
 		</>
@@ -113,13 +113,13 @@ export default function AdminLayout() {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [collapsed, setCollapsed] = useState(false);
 
-	// 当前路由对应的页面标题,显示在固定顶栏
+	// Show the current route title in the fixed header.
 	const currentTitle =
 		navItems.find(({ to, end }) =>
 			end ? location.pathname === to : location.pathname.startsWith(to),
-		)?.label ?? "后台管理";
+		)?.label ?? "Admin";
 
-	// 未登录跳转登录页
+	// Redirect unauthenticated users to sign-in.
 	useEffect(() => {
 		if (!isLoading && auth && !auth.authenticated) {
 			navigate("/login", { replace: true });
@@ -129,24 +129,24 @@ export default function AdminLayout() {
 	if (isLoading || !auth?.authenticated) {
 		return (
 			<div className="flex min-h-screen items-center justify-center text-muted-foreground">
-				加载中…
+				Loading…
 			</div>
 		);
 	}
 
 	return (
 		<div className="flex h-dvh flex-col overflow-hidden bg-muted/40 md:flex-row">
-			{/* 移动端顶栏:汉堡菜单 + 抽屉导航(固定,不随内容滚动) */}
+			{/* Fixed mobile header with menu button and navigation drawer. */}
 			<header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3 md:hidden">
 				<Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
 					<SheetTrigger asChild>
-						<Button variant="ghost" size="icon" aria-label="打开菜单">
+						<Button variant="ghost" size="icon" aria-label="Open menu">
 							<Menu className="size-5" />
 						</Button>
 					</SheetTrigger>
 					<SheetContent side="left" className="flex w-64 flex-col p-4">
 						<SheetHeader className="p-0">
-							<SheetTitle className="px-2 text-left">后台管理</SheetTitle>
+							<SheetTitle className="px-2 text-left">Admin</SheetTitle>
 						</SheetHeader>
 						<NavContent onNavigate={() => setDrawerOpen(false)} />
 					</SheetContent>
@@ -154,7 +154,7 @@ export default function AdminLayout() {
 				<span className="font-bold">{currentTitle}</span>
 			</header>
 
-			{/* 桌面侧栏:固定不动,菜单过长时自身滚动;可折叠为纯图标窄栏 */}
+			{/* Fixed desktop sidebar with independent scrolling and an icon-only collapsed state. */}
 			<aside
 				className={cn(
 					"hidden shrink-0 flex-col overflow-y-auto border-r bg-background p-4 transition-[width] duration-200 md:flex",
@@ -167,12 +167,12 @@ export default function AdminLayout() {
 						collapsed ? "justify-center" : "justify-between",
 					)}
 				>
-					{!collapsed && <span className="text-lg font-bold">后台管理</span>}
+					{!collapsed && <span className="text-lg font-bold">Admin</span>}
 					<Button
 						variant="ghost"
 						size="icon"
 						className="size-8 shrink-0"
-						aria-label={collapsed ? "展开侧栏" : "折叠侧栏"}
+						aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 						onClick={() => setCollapsed((v) => !v)}
 					>
 						{collapsed ? (
@@ -185,7 +185,7 @@ export default function AdminLayout() {
 				<NavContent collapsed={collapsed} />
 			</aside>
 
-			{/* 内容列:固定顶栏显示当前页标题,下方内容独立滚动(min-h-0 保证 flex 子项可收缩出滚动区) */}
+			{/* Fixed page title above independently scrolling content; min-h-0 allows the flex child to shrink. */}
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 				<header className="hidden h-14 shrink-0 items-center border-b bg-background px-6 md:flex">
 					<h1 className="text-lg font-bold">{currentTitle}</h1>

@@ -8,26 +8,26 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAdminSettings, useSaveSettings, useAIUsage, useTestAI } from "@/lib/admin-queries";
 
-// 今日免费额度软上限(仅展示预警,不拦截). Workers AI 免费版每日调用上限有限,接近时提醒
+// Daily usage soft limit: display a warning near the free allowance without blocking requests.
 const DAILY_SOFT_LIMIT = 1000;
 
-// 内置 Workers AI 默认模型(作为占位符,用户可自定义其它模型 id)
+// Default Workers AI model, used as a placeholder; other model IDs are supported.
 const DEFAULT_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 
-// Cloudflare Workers AI 模型列表,供用户查找可用的 model id
+// Cloudflare Workers AI model catalog for finding available model IDs.
 const WORKERS_AI_MODELS_URL = "https://developers.cloudflare.com/workers-ai/models/";
 
-// 埋点 feature 名 -> 中文标签
+// Map analytics feature names to readable labels.
 const FEATURE_LABELS: Record<string, string> = {
-	autoFill: "自动填充",
-	tagSuggest: "标签推荐",
-	semanticSearch: "语义搜索",
-	summary: "内容摘要",
-	autoCategorize: "自动分类",
-	deadLinkRepair: "死链修复",
+	autoFill: "Autofill",
+	tagSuggest: "Tag suggestions",
+	semanticSearch: "Semantic search",
+	summary: "Content summaries",
+	autoCategorize: "Auto-categorization",
+	deadLinkRepair: "Broken link repair",
 };
 
-// 模型输入框(内置 / 自定义共用)
+// Model input shared by built-in and custom providers.
 function ModelField({
 	model,
 	onModelChange,
@@ -41,7 +41,7 @@ function ModelField({
 }) {
 	return (
 		<div className="space-y-2">
-			<Label htmlFor="ai-model">模型名称</Label>
+			<Label htmlFor="ai-model">Model name</Label>
 			<Input
 				id="ai-model"
 				value={model}
@@ -56,33 +56,33 @@ function ModelField({
 const FEATURES = [
 	{
 		key: "ai.features.autoFill",
-		label: "自动填充书签信息",
-		description: "输入 URL 时自动抓取并补全标题、描述和图标",
+		label: "Autofill bookmark details",
+		description: "Fetch and complete the title, description, and icon when you enter a URL",
 	},
 	{
 		key: "ai.features.tagSuggest",
-		label: "智能标签推荐",
-		description: "保存书签后根据内容自动推荐标签",
+		label: "AI tag suggestions",
+		description: "Suggest tags based on bookmark content after saving",
 	},
 	{
 		key: "ai.features.semanticSearch",
-		label: "语义搜索",
-		description: "用自然语言搜索书签，如「找 CSS 工具」",
+		label: "Semantic search",
+		description: "Search bookmarks using natural language, such as find CSS tools",
 	},
 	{
 		key: "ai.features.summary",
-		label: "内容摘要",
-		description: "为书签自动生成一句话中文摘要",
+		label: "Content summaries",
+		description: "Generate a one-sentence English summary for each bookmark",
 	},
 	{
 		key: "ai.features.autoCategorize",
-		label: "自动分类",
-		description: "添加书签时推荐最合适的分类",
+		label: "Auto-categorization",
+		description: "Suggest the most suitable category when adding a bookmark",
 	},
 	{
 		key: "ai.features.deadLinkRepair",
-		label: "死链修复",
-		description: "为失效链接推断替代地址或存档",
+		label: "Broken link repair",
+		description: "Suggest alternative URLs or archives for broken links",
 	},
 ];
 
@@ -93,7 +93,7 @@ export default function AdminAI() {
 	const testAI = useTestAI();
 
 	const [showKey, setShowKey] = useState(false);
-	// 以已保存配置为基准,draft 只记录用户改动过的字段,避免用 effect 回填 state
+	// Use saved settings as the baseline and keep only edited fields in the draft, avoiding effect-based state resets.
 	const [draft, setDraft] = useState<Record<string, string>>({});
 	const [draftFeatures, setDraftFeatures] = useState<Record<string, boolean>>({});
 	const pick = (key: string, fallback = "") => draft[key] ?? data?.[key] ?? fallback;
@@ -134,51 +134,51 @@ export default function AdminAI() {
 		};
 		try {
 			await testAI.mutateAsync(cfg);
-			toast.success("连接成功，模型可用");
+			toast.success("Connected successfully. The model is available.");
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "检测失败");
+			toast.error(err instanceof Error ? err.message : "Check failed");
 		}
 	};
 
 	return (
 		<div className="mx-auto max-w-2xl space-y-6">
-			{/* 用量概览(免费额度防刷 + 自定义 API 防滥用) */}
+			{/* AI usage overview for monitoring allowance and custom API abuse. */}
 			<Card>
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<BarChart3 className="size-5 text-orange-500" />
-						<CardTitle>用量概览</CardTitle>
+						<CardTitle>Usage overview</CardTitle>
 					</div>
-					<CardDescription>统计最近 24 小时内的 AI 调用情况</CardDescription>
+					<CardDescription>AI requests over the last 24 hours</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-5">
 					{usageLoading ? (
-						<p className="text-sm text-muted-foreground">加载中…</p>
+						<p className="text-sm text-muted-foreground">Loading…</p>
 					) : (
 						<>
-							{/* 今日核心指标 */}
+							{/* Key metrics for today. */}
 							<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-								<Metric label="今日调用" value={usage?.today.total ?? 0} />
+								<Metric label="Requests today" value={usage?.today.total ?? 0} />
 								<Metric
-									label="成功率"
+									label="Success rate"
 									value={`${usage?.today.successRate ?? 100}%`}
 								/>
-								<Metric label="失败" value={usage?.today.failed ?? 0} />
+								<Metric label="Failed" value={usage?.today.failed ?? 0} />
 								<Metric
-									label="平均耗时"
+									label="Average duration"
 									value={`${usage?.today.avgDurationMs ?? 0}ms`}
 								/>
 							</div>
 
-							{/* 免费额度软上限预警(builtin 才展示) */}
+							{/* Free allowance soft-limit warning for the built-in provider. */}
 							{usage && provider === "builtin" && usage.today.total > 0 && (
 								<SoftLimitBar total={usage.today.total} />
 							)}
 
-							{/* 各功能分布 */}
+							{/* Usage by feature. */}
 							<div className="space-y-2">
 								<p className="text-xs font-medium text-muted-foreground">
-									各功能调用次数
+									Requests by feature
 								</p>
 								{usage && usage.byFeature.length > 0 ? (
 									usage.byFeature.map((f) => (
@@ -188,7 +188,7 @@ export default function AdminAI() {
 													{FEATURE_LABELS[f.feature] ?? f.feature}
 												</span>
 												<span className="text-muted-foreground">
-													{f.total} 次{f.success < f.total ? ` · ${f.total - f.success} 失败` : ""}
+													{f.total} requests{f.success < f.total ? ` · ${f.total - f.success} failed` : ""}
 												</span>
 											</div>
 											<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -208,12 +208,12 @@ export default function AdminAI() {
 									))
 								) : (
 									<p className="text-xs text-muted-foreground">
-										今日暂无 AI 调用记录
+										No AI requests today
 									</p>
 								)}
 							</div>
 
-							{/* 提供商分布 */}
+							{/* Usage by provider. */}
 							{usage && usage.byProvider.length > 0 && (
 								<div className="space-y-1 text-xs text-muted-foreground">
 									{usage.byProvider.map((p) => (
@@ -223,20 +223,20 @@ export default function AdminAI() {
 										>
 											<span>
 												{p.provider === "builtin"
-													? "内置 Workers AI"
-													: "自定义 API"}
+													? "Built-in Workers AI"
+													: "Custom API"}
 											</span>
-											<span>{p.total} 次</span>
+											<span>{p.total} requests</span>
 										</div>
 									))}
 								</div>
 							)}
 
-							{/* 最近错误 */}
+							{/* Recent errors. */}
 							{usage && usage.recentErrors.length > 0 && (
 								<div className="space-y-1.5">
 									<p className="text-xs font-medium text-muted-foreground">
-										最近失败记录
+										Recent failures
 									</p>
 									{usage.recentErrors.slice(0, 8).map((e, i) => (
 										<div
@@ -248,7 +248,7 @@ export default function AdminAI() {
 											</span>
 											<span className="text-muted-foreground">
 												{" "}
-												· {new Date(e.createdAt).toLocaleTimeString()}
+												· {new Date(e.createdAt).toLocaleTimeString("en-US")}
 											</span>
 											<p className="mt-0.5 break-all text-muted-foreground">
 												{e.error}
@@ -262,20 +262,20 @@ export default function AdminAI() {
 				</CardContent>
 			</Card>
 
-			{/* 总开关 */}
+			{/* Master switch. */}
 			<Card>
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Sparkles className="size-5 text-orange-500" />
-						<CardTitle>AI 功能</CardTitle>
+						<CardTitle>AI features</CardTitle>
 					</div>
 					<CardDescription>
-						启用后可使用 AI 辅助书签管理。AI 调用会产生少量费用，默认关闭。
+						Enable AI-assisted bookmark management. AI requests may incur a small cost. Disabled by default.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="flex items-center justify-between">
 					<Label htmlFor="ai-enabled" className="text-sm text-muted-foreground">
-						{enabled ? "已启用" : "已关闭"}
+						{enabled ? "Enabled" : "Disabled"}
 					</Label>
 					<Switch
 						id="ai-enabled"
@@ -286,11 +286,11 @@ export default function AdminAI() {
 				</CardContent>
 			</Card>
 
-			{/* 提供商配置 */}
+			{/* Provider configuration. */}
 			<Card>
 				<CardHeader>
-					<CardTitle>AI 提供商</CardTitle>
-					<CardDescription>选择调用 AI 的方式</CardDescription>
+					<CardTitle>AI provider</CardTitle>
+					<CardDescription>Choose how to access AI</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<div className="flex items-center gap-3">
@@ -302,7 +302,7 @@ export default function AdminAI() {
 							className="flex items-center gap-1.5"
 						>
 							<Zap className="size-3.5" />
-							内置
+							Built-in
 						</Button>
 						<Button
 							type="button"
@@ -312,13 +312,13 @@ export default function AdminAI() {
 							className="flex items-center gap-1.5"
 						>
 							<FlaskConical className="size-3.5" />
-							自定义 API
+							Custom API
 						</Button>
 					</div>
 					<p className="text-xs text-muted-foreground">
 						{provider === "builtin"
-							? "使用 Cloudflare Workers AI，在免费额度内不产生费用。"
-							: "兼容 OpenAI 格式的 API，可接入第三方模型服务。"}
+							? "Use Cloudflare Workers AI at no cost within the free allowance."
+							: "Connect to third-party model services through an OpenAI-compatible API."}
 					</p>
 
 					{provider === "custom" && (
@@ -351,7 +351,7 @@ export default function AdminAI() {
 										variant="outline"
 										onClick={() => setShowKey((v) => !v)}
 										disabled={isLoading}
-										aria-label={showKey ? "隐藏密钥" : "显示密钥"}
+										aria-label={showKey ? "Hide API key" : "Show API key"}
 									>
 										{showKey ? (
 											<EyeOff className="size-4" />
@@ -379,20 +379,20 @@ export default function AdminAI() {
 								disabled={isLoading}
 							/>
 							<p className="text-xs text-muted-foreground">
-								留空则使用默认模型{" "}
+								Leave blank to use the default model{" "}
 								<code className="rounded bg-muted px-1 py-0.5">
 									{DEFAULT_MODEL}
 								</code>
-								。可在{" "}
+								. Browse the{" "}
 								<a
 									href={WORKERS_AI_MODELS_URL}
 									target="_blank"
 									rel="noreferrer"
 									className="text-blue-500 hover:underline"
 								>
-									Cloudflare Workers AI 模型列表
+									Cloudflare Workers AI model catalog
 								</a>{" "}
-								查找其它可用的 model id。
+								for other available model IDs.
 							</p>
 						</form>
 					)}
@@ -407,20 +407,20 @@ export default function AdminAI() {
 							className="flex items-center gap-1.5"
 						>
 							<FlaskConical className="size-3.5" />
-							{testAI.isPending ? "检测中…" : "测试连接"}
+							{testAI.isPending ? "Checking…" : "Test connection"}
 						</Button>
 						<p className="mt-1.5 text-xs text-muted-foreground">
-							用当前表单配置试跑一次，验证模型是否可用（不会保存设置）。
+							Test the current form configuration to check model availability without saving settings.
 						</p>
 					</div>
 				</CardContent>
 			</Card>
 
-			{/* 功能开关 */}
+			{/* Feature switches. */}
 			<Card>
 				<CardHeader>
-					<CardTitle>功能开关</CardTitle>
-					<CardDescription>单独启用或关闭各项 AI 功能</CardDescription>
+					<CardTitle>Feature controls</CardTitle>
+					<CardDescription>Enable or disable individual AI features</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					{FEATURES.map((feat) => (
@@ -449,23 +449,23 @@ export default function AdminAI() {
 				</CardContent>
 			</Card>
 
-			{/* 隐私说明 & 保存 */}
+			{/* Privacy information and save action. */}
 			<Card>
 				<CardHeader>
-					<CardTitle>隐私说明</CardTitle>
+					<CardTitle>Privacy information</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-						<li>书签标题和 URL 会发送至所选 AI 提供商用于内容分析</li>
-						<li>数据仅用于推理，不会用于模型训练</li>
-						<li>可随时关闭 AI 功能，已产生的分析结果不受影响</li>
+						<li>Bookmark titles and URLs are sent to the selected AI provider for analysis</li>
+						<li>Data is used for inference, not model training</li>
+						<li>You can disable AI at any time; existing analysis results are retained</li>
 					</ul>
 					<Button
 						type="button"
 						onClick={handleSubmit}
 						disabled={save.isPending || isLoading}
 					>
-						{save.isPending ? "保存中…" : "保存设置"}
+						{save.isPending ? "Saving…" : "Save settings"}
 					</Button>
 				</CardContent>
 			</Card>
@@ -492,10 +492,10 @@ function SoftLimitBar({ total }: { total: number }) {
 			? "bg-yellow-500"
 			: "bg-orange-500";
 	const text = over
-		? `今日免费额度已接近上限（${total}/${DAILY_SOFT_LIMIT}），注意可能被限流`
+		? `Today’s free allowance is nearly used up (${total}/${DAILY_SOFT_LIMIT}). Requests may be rate-limited.`
 		: near
-			? `今日免费额度使用较多（${total}/${DAILY_SOFT_LIMIT}），请注意`
-			: `今日免费额度使用 ${total}/${DAILY_SOFT_LIMIT}`;
+			? `High usage of today’s free allowance (${total}/${DAILY_SOFT_LIMIT}). Keep an eye on usage.`
+			: `Today’s free allowance usage:  ${total}/${DAILY_SOFT_LIMIT}`;
 	return (
 		<div className="space-y-1.5">
 			<div className="h-2 w-full overflow-hidden rounded-full bg-muted">

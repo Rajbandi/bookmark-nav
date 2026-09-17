@@ -9,7 +9,7 @@ import "./index.css";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 
-// 后台按路由懒加载,不拖累前台首屏
+// Lazy-load admin routes to keep the public page initial load small.
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const AdminBookmarks = lazy(() => import("./pages/admin/AdminBookmarks"));
 const AdminCategories = lazy(() => import("./pages/admin/AdminCategories"));
@@ -26,7 +26,7 @@ const queryClient = new QueryClient({
 	},
 });
 
-// 首帧防闪烁:React 挂载前先按已存偏好置 dark 类,之后由 next-themes 接管(默认跟随系统)
+// Apply the saved dark-mode preference before React mounts to avoid flashing; next-themes takes over afterward.
 const stored = localStorage.getItem("theme");
 if (
 	stored === "dark" ||
@@ -45,7 +45,7 @@ createRoot(document.getElementById("root")!).render(
 					<Suspense
 						fallback={
 							<div className="flex min-h-screen items-center justify-center text-muted-foreground">
-								加载中…
+								Loading…
 							</div>
 						}
 					>

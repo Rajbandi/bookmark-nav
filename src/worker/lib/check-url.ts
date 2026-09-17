@@ -1,5 +1,5 @@
-// 网址存活检测:HEAD 优先,不支持/失败时降级 GET;仅 404/410/网络失败判死,防误杀反爬站点
-// 供后台手动分批检测与定时任务(cron)共同使用
+// Try HEAD first, then GET; mark only 404, 410, or network failures as dead to avoid false positives from bot protection.
+// Shared by manual admin link checks and scheduled tasks.
 export async function checkUrl(url: string): Promise<boolean> {
 	const headers = {
 		"User-Agent":
@@ -14,7 +14,7 @@ export async function checkUrl(url: string): Promise<boolean> {
 		});
 		if (res.status < 400) return true;
 	} catch {
-		// 降级 GET 再试
+		// Retry with GET as a fallback.
 	}
 	try {
 		const res = await fetch(url, {

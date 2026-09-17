@@ -21,10 +21,10 @@ export type AISettings = {
 
 const DEFAULT_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 
-// AI 请求超时。上游挂起会一直占用本次请求直至 Worker 被强制回收,
-// 且 runChat 可由匿名接口(语义搜索)触发,必须显式中断。
+// Explicitly time out AI requests so a stalled upstream does not occupy the Worker until termination.
+// This is also necessary because anonymous semantic search can invoke runChat.
 const AI_TIMEOUT_MS = 30_000;
-// 连接测试只做一次短探测,超时可以更激进
+// Connection tests are short probes and can use a shorter timeout.
 const AI_TEST_TIMEOUT_MS = 20_000;
 
 export async function loadAISettings(db: Db): Promise<AISettings> {
@@ -54,8 +54,8 @@ export async function loadAISettings(db: Db): Promise<AISettings> {
 
 export type AIMessage = { role: "system" | "user"; content: string };
 
-// Workers AI 的 model 形参是固定的模型 id 联合类型,但运行期允许传自定义模型,
-// 这里集中收敛这一处断言,避免散落 any
+// Workers AI types model as a fixed union, but custom model IDs are supported at runtime.
+// Centralize the assertion here instead of spreading any casts throughout the code.
 type AiModel = Parameters<Ai["run"]>[0];
 type AiOptions = Parameters<Ai["run"]>[2];
 const asAiModel = (model: string) => model as AiModel;
@@ -68,7 +68,7 @@ export async function runChat(
 	db?: Db,
 ): Promise<string> {
 	if (!settings.enabled) {
-		throw new Error("AI 功能未启用");
+		throw new Error("AI features are disabled");
 	}
 
 	const provider = settings.provider;
@@ -78,9 +78,9 @@ export async function runChat(
 
 	try {
 		if (provider === "custom") {
-			if (!settings.apiEndpoint) throw new Error("自定义 API Endpoint 未配置");
-			if (!settings.apiKey) throw new Error("自定义 API Key 未配置");
-			if (!settings.model) throw new Error("自定义模型未配置");
+			if (!settings.apiEndpoint) throw new Error("Custom API endpoint is not configured");
+			if (!settings.apiKey) throw new Error("Custom API key is not configured");
+			if (!settings.model) throw new Error("Custom model is not configured");
 
 			const res = await fetch(`${settings.apiEndpoint.replace(/\/$/, "")}/chat/completions`, {
 				method: "POST",
@@ -97,23 +97,23 @@ export async function runChat(
 			});
 			if (!res.ok) {
 				const text = await res.text().catch(() => "");
-				throw new Error(`自定义 AI 请求失败 (${res.status}): ${text}`);
+				throw new Error(`Custom AI request failed (${res.status}): ${text}`);
 			}
 			const body = (await res.json()) as {
 				choices?: { message?: { content?: string } }[];
 			};
 			const content = body.choices?.[0]?.message?.content;
-			if (!content) throw new Error("自定义 AI 返回内容为空");
+			if (!content) throw new Error("Custom AI returned an empty response");
 			return content;
 		}
 
-		// 内置 Workers AI
+		// Built-in Workers AI
 		const model = settings.model || DEFAULT_MODEL;
 		const result = await env.AI.run(asAiModel(model), { messages }, {
 			signal: AbortSignal.timeout(AI_TIMEOUT_MS),
 		} as AiOptions);
 		const content = (result as { response?: string }).response;
-		if (!content) throw new Error("Workers AI 返回内容为空");
+		if (!content) throw new Error("Workers AI returned an empty response");
 		return content;
 	} catch (err) {
 		errorMsg = err instanceof Error ? err.message : String(err);
@@ -130,12 +130,12 @@ export async function runChat(
 					durationMs: Date.now() - start,
 					error: errorMsg,
 				})
-				.catch((e) => console.error("写入 AI 用量记录失败:", e));
+				.catch((e) => console.error("Failed to record AI usage:", e));
 		}
 	}
 }
 
-// 用临时配置(非已保存设置)试跑一次,验证 provider / endpoint / key / model 是否可用
+// Test a temporary configuration without saving to verify the provider, endpoint, key, and model.
 export async function testModel(env: Env, cfg: {
 	provider: AIProvider;
 	apiEndpoint?: string;
@@ -143,14 +143,14 @@ export async function testModel(env: Env, cfg: {
 	model: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
 	const messages: AIMessage[] = [
-		{ role: "system", content: "你是连接测试助手,只回复 ok 两个字母。" },
+		{ role: "system", content: "You are a connection test assistant. Reply only with the two letters ok." },
 		{ role: "user", content: "ping" },
 	];
 	try {
 		if (cfg.provider === "custom") {
-			if (!cfg.apiEndpoint) return { ok: false, error: "自定义 API Endpoint 未填写" };
-			if (!cfg.apiKey) return { ok: false, error: "自定义 API Key 未填写" };
-			if (!cfg.model) return { ok: false, error: "自定义模型未填写" };
+			if (!cfg.apiEndpoint) return { ok: false, error: "Enter a custom API endpoint" };
+			if (!cfg.apiKey) return { ok: false, error: "Enter a custom API key" };
+			if (!cfg.model) return { ok: false, error: "Enter a custom model" };
 			const res = await fetch(
 				`${cfg.apiEndpoint.replace(/\/$/, "")}/chat/completions`,
 				{
@@ -165,18 +165,18 @@ export async function testModel(env: Env, cfg: {
 			);
 			if (!res.ok) {
 				const text = await res.text().catch(() => "");
-				return { ok: false, error: `请求失败 (${res.status}): ${text.slice(0, 300)}` };
+				return { ok: false, error: `Request failed (${res.status}): ${text.slice(0, 300)}` };
 			}
 			const body = (await res.json()) as {
 				choices?: { message?: { content?: string } }[];
 			};
 			if (!body.choices?.[0]?.message?.content) {
-				return { ok: false, error: "返回内容为空" };
+				return { ok: false, error: "The response is empty" };
 			}
 			return { ok: true };
 		}
 
-		// 内置 Workers AI
+		// Built-in Workers AI
 		const model = cfg.model || DEFAULT_MODEL;
 		const result = await env.AI.run(
 			asAiModel(model),
@@ -184,7 +184,7 @@ export async function testModel(env: Env, cfg: {
 			{ signal: AbortSignal.timeout(AI_TEST_TIMEOUT_MS) } as AiOptions,
 		);
 		const content = (result as { response?: string }).response;
-		if (!content) return { ok: false, error: "Workers AI 返回内容为空" };
+		if (!content) return { ok: false, error: "Workers AI returned an empty response" };
 		return { ok: true };
 	} catch (err) {
 		return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -192,11 +192,11 @@ export async function testModel(env: Env, cfg: {
 }
 
 export function extractJson<T>(text: string): T {
-	// 先尝试整个文本
+	// Try parsing the entire response first.
 	try {
 		return JSON.parse(text) as T;
 	} catch {
-		// 尝试提取 ```json ... ``` 或 {...}
+		// Try extracting a fenced JSON block or an object.
 		const codeBlock = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
 		if (codeBlock) {
 			try {
@@ -214,5 +214,5 @@ export function extractJson<T>(text: string): T {
 			}
 		}
 	}
-	throw new Error("AI 返回内容不是有效 JSON");
+	throw new Error("AI returned invalid JSON");
 }

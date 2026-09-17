@@ -2,7 +2,7 @@ import { asc } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { bookmarkTags, bookmarks, categories, settings, tags } from "../db/schema";
 
-// 全量数据快照,写入 R2 作为每日备份
+// Full data snapshot for daily R2 backups.
 export async function buildBackupPayload(db: Db): Promise<string> {
 	const [cats, bms, tagRows, links, settingRows] = await Promise.all([
 		db.select().from(categories).orderBy(asc(categories.sort), asc(categories.id)),
@@ -19,7 +19,7 @@ export async function buildBackupPayload(db: Db): Promise<string> {
 			bookmarks: bms,
 			tags: tagRows,
 			bookmarkTags: links,
-			// 导出为 key→value 对象而非行数组,与恢复接口的设置结构一致
+			// Export settings as a key/value object, matching the restore endpoint.
 			settings: Object.fromEntries(settingRows.map((r) => [r.key, r.value])),
 		},
 		null,
@@ -27,7 +27,7 @@ export async function buildBackupPayload(db: Db): Promise<string> {
 	);
 }
 
-// 把快照写入 R2(backups/日期.json);未绑定 R2 时返回 null 由调用方决定提示
+// Write the snapshot to R2 (backups/date.json); return null when no bucket is bound.
 export async function backupToR2(env: Env, db: Db): Promise<string | null> {
 	if (!env.BACKUP) return null;
 	const payload = await buildBackupPayload(db);
@@ -36,7 +36,7 @@ export async function backupToR2(env: Env, db: Db): Promise<string | null> {
 	await env.BACKUP.put(key, payload, {
 		httpMetadata: { contentType: "application/json; charset=utf-8" },
 	});
-	// 记录最近备份时间,后台展示用
+	// Record the latest backup time for the admin interface.
 	await db
 		.insert(settings)
 		.values({ key: "backup.lastRun", value: new Date().toISOString() })

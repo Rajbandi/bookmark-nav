@@ -1,5 +1,5 @@
-// 浏览器插件访问令牌(PAT):明文仅生成时返回一次,库里只存 SHA-256。
-// 前缀用于快速区分 Bearer 令牌与 JWT cookie,避免无谓的哈希与查库
+// Browser extension access tokens: return plaintext once and store only SHA-256.
+// Use the prefix to distinguish Bearer tokens from JWT cookies without unnecessary hashing or database queries.
 const TOKEN_PREFIX = "bnav_";
 
 export function generateApiToken(): string {
@@ -22,7 +22,7 @@ export async function hashApiToken(token: string): Promise<string> {
 	).join("");
 }
 
-// 令牌末 4 位,后台展示用于辨认,不含任何可逆信息
+// Last four token characters for identification; no reversible token data.
 export function tokenHint(token: string): string {
 	return token.slice(-4);
 }

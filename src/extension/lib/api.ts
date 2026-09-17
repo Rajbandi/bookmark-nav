@@ -1,5 +1,5 @@
-// 插件侧 API 客户端:全部走 Bearer 令牌(跨域 fetch 不携带 SameSite cookie)。
-// 不复用主前端 hono/client:插件配置的域名运行时才知道,hc 无法提前静态创建
+// Extension API client: use Bearer tokens because cross-origin fetch does not send SameSite cookies.
+// The site URL is configured at runtime, so the main frontend hono/client cannot be initialized statically.
 import { loadConfig } from "./config";
 
 export type Category = {
@@ -19,8 +19,8 @@ export type Bookmark = {
 
 export type FlatCategory = { category: Category; depth: number; path: string };
 
-// 把分类树按深度优先拍平,带层级深度与完整路径(与主前端同名函数一致,
-// 本地实现是为了不把 worker 的类型依赖拉进插件构建/类型检查)
+// Flatten the category tree depth-first, including depth and full paths, as in the main frontend.
+// Keep this implementation local to avoid worker type dependencies in extension builds and type checks.
 export function flattenCategoryTree(cats: Category[]): FlatCategory[] {
 	const byParent = new Map<number | null, Category[]>();
 	for (const cat of cats) {
@@ -60,7 +60,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	const cfg = await loadConfig();
-	if (!cfg) throw new ApiError(0, "插件未配置,请先在选项页填写站点地址与令牌");
+	if (!cfg) throw new ApiError(0, "Configure the site URL and token on the extension settings page first.");
 	const res = await fetch(`${cfg.siteUrl}${path}`, {
 		...init,
 		headers: {
@@ -70,21 +70,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	});
 	if (!res.ok) {
 		const body = (await res.json().catch(() => null)) as { error?: string } | null;
-		// 401 统一引导到重新配置令牌,而不是笼统的"请求失败"
-		const message = res.status === 401 ? "令牌已失效,请在后台重新生成并在选项页更新" : body?.error ?? `请求失败(${res.status})`;
+		// For 401 responses, direct users to update their token instead of showing a generic error.
+		const message = res.status === 401 ? "Your token has expired or been revoked. Generate a new one in admin and update the extension settings." : body?.error ?? `Request failed (${res.status})`;
 		throw new ApiError(res.status, message);
 	}
 	return res.json() as Promise<T>;
 }
 
-// 分类列表(登录态:含私密分类),按现有排序返回
+// Return categories in their saved order, including private categories for authenticated users.
 export function fetchCategories() {
 	return request<{ categories: Category[] }>("/api/admin/categories").then(
 		(r) => r.categories,
 	);
 }
 
-// 全量书签(用于 URL 查重);数据量大时仍是可接受的单次拉取
+// Fetch all bookmarks once to check for duplicate URLs.
 export function fetchBookmarks() {
 	return request<{ bookmarks: Bookmark[] }>("/api/admin/bookmarks");
 }
@@ -96,14 +96,14 @@ export function createBookmark(data: BookmarkPayload) {
 	});
 }
 
-// AI 可用性(公开接口):决定 popup 是否显示"AI 智能填充"入口
+// Public AI availability determines whether the popup shows AI autofill.
 export function fetchAIConfig() {
 	return request<{ aiEnabled: boolean; semanticSearch: boolean }>(
 		"/api/public/ai-config",
 	);
 }
 
-// AI 智能填充:返回 AI 生成的标题/描述/标签,以及映射到现有分类的 categoryId
+// AI autofill returns generated metadata and a categoryId mapped to an existing category.
 export function aiAutoFill(url: string) {
 	return request<{
 		title: string | null;
@@ -116,22 +116,22 @@ export function aiAutoFill(url: string) {
 	});
 }
 
-// 校验站点可达 + 令牌有效(options 页保存前用)
+// Verify site connectivity and token validity before saving extension settings.
 export async function verifyConfig(siteUrl: string, token: string): Promise<string | null> {
 	try {
 		const site = await fetch(`${siteUrl}/api/public/site`);
-		if (!site.ok) return `站点无响应(HTTP ${site.status})`;
+		if (!site.ok) return `Site did not respond (HTTP  ${site.status})`;
 	} catch {
-		return "无法连接站点,请检查地址";
+		return "Cannot connect to the site. Check the URL.";
 	}
 	try {
 		const res = await fetch(`${siteUrl}/api/admin/token`, {
 			headers: { Authorization: `Bearer ${token}` },
 		});
-		if (res.status === 401) return "令牌无效,请在后台「安全」页重新生成";
-		if (!res.ok) return `令牌校验失败(HTTP ${res.status})`;
+		if (res.status === 401) return "Invalid token. Generate a new one on the admin Security page.";
+		if (!res.ok) return `Token verification failed (HTTP  ${res.status})`;
 	} catch {
-		return "无法连接站点,请检查地址";
+		return "Cannot connect to the site. Check the URL.";
 	}
 	return null;
 }
